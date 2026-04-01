@@ -1,0 +1,89 @@
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, HTTPException, status, Depends
+
+from app.core.security import require_active_user, require_admin
+from app.core.database import get_db
+from app.models.schemas import ModelCreate, ModelOut, TokenData
+from app.models.registry import (
+    register_model,
+    get_model,
+    get_all_models,
+    deactivate_model,
+    get_model_risk_score,
+    get_model_sensitivity_score,
+)
+
+router = APIRouter()
+
+
+@router.get("/", response_model=list[ModelOut])
+async def list_models(
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_active_user),
+):
+    return await get_all_models(db=db)
+
+
+@router.get("/{model_id}", response_model=ModelOut)
+async def get_single_model(
+    model_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_active_user),
+):
+    model = await get_model(db=db, model_id=model_id)
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Model with id {model_id} not found",
+        )
+    return model
+
+
+@router.post("/", response_model=ModelOut, status_code=status.HTTP_201_CREATED)
+async def create_model(
+    model: ModelCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_admin),
+):
+    return await register_model(db=db, model=model)
+
+
+@router.delete("/{model_id}", status_code=status.HTTP_200_OK)
+async def remove_model(
+    model_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_admin),
+):
+    success = await deactivate_model(db=db, model_id=model_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Model with id {model_id} not found",
+        )
+    return {"message": f"Model {model_id} deactivated successfully"}
+
+
+@router.get("/{model_id}/risk", status_code=status.HTTP_200_OK)
+async def get_model_risk_info(
+    model_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_active_user),
+):
+    model = await get_model(db=db, model_id=model_id)
+    if not model:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Model with id {model_id} not found",
+        )
+
+    risk_score = await get_model_risk_score(db=db, model_id=model_id)
+    sensitivity_score = await get_model_sensitivity_score(db=db, model_id=model_id)
+
+    return {
+        "model_id": model_id,
+        "name": model.name,
+        "risk_level": model.risk_level,
+        "sensitivity_level": model.sensitivity_level,
+        "risk_score": risk_score,
+        "sensitivity_score": sensitivity_score,
+    }
