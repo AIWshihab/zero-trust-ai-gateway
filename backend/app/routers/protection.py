@@ -6,17 +6,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.protection_engine import compute_protected_score
+from app.core.security import require_admin, require_active_user
 from app.models.model import Model
-from app.models.schemas import ProtectionConfig, ProtectionScoreResponse
+from app.schemas import ErrorResponse, ProtectionConfig, ProtectionScoreResponse, ScanStatus, TokenData
+from app.services.model_readiness import ensure_model_ready
 
 router = APIRouter()
 
 
-@router.post("/{model_id}/enable", response_model=ProtectionScoreResponse)
+@router.post(
+    "/{model_id}/enable",
+    response_model=ProtectionScoreResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        403: {"model": ErrorResponse, "description": "Admin access required"},
+        409: {"model": ErrorResponse, "description": "Model not ready"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+    },
+)
 async def enable_protection(
     model_id: int,
     payload: ProtectionConfig,
     db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_admin),
 ):
     result = await db.execute(select(Model).where(Model.id == model_id))
     model_row = result.scalar_one_or_none()
@@ -24,11 +36,7 @@ async def enable_protection(
     if not model_row:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    if model_row.base_trust_score is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Model has no base trust score. Run assessment scan first.",
-        )
+    ensure_model_ready(model_row, action="protection enable")
 
     protection_result = compute_protected_score(
         base_trust_score=float(model_row.base_trust_score),
@@ -42,7 +50,7 @@ async def enable_protection(
 
     model_row.protected_score = protection_result["protected_score"]
     model_row.secure_mode_enabled = True
-    model_row.scan_status = "protected"
+    model_row.scan_status = ScanStatus.PROTECTED.value
 
     existing_summary = {}
     if model_row.scan_summary_json:
@@ -70,10 +78,20 @@ async def enable_protection(
     )
 
 
-@router.post("/{model_id}/disable", response_model=ProtectionScoreResponse)
+@router.post(
+    "/{model_id}/disable",
+    response_model=ProtectionScoreResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        403: {"model": ErrorResponse, "description": "Admin access required"},
+        409: {"model": ErrorResponse, "description": "Model not ready"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+    },
+)
 async def disable_protection(
     model_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_admin),
 ):
     result = await db.execute(select(Model).where(Model.id == model_id))
     model_row = result.scalar_one_or_none()
@@ -81,15 +99,11 @@ async def disable_protection(
     if not model_row:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    if model_row.base_trust_score is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Model has no base trust score stored.",
-        )
+    ensure_model_ready(model_row, action="protection disable")
 
     model_row.secure_mode_enabled = False
     model_row.protected_score = model_row.base_trust_score
-    model_row.scan_status = "completed"
+    model_row.scan_status = ScanStatus.COMPLETED.value
 
     await db.commit()
     await db.refresh(model_row)
@@ -107,10 +121,19 @@ async def disable_protection(
     )
 
 
-@router.get("/{model_id}/score", response_model=ProtectionScoreResponse)
+@router.get(
+    "/{model_id}/score",
+    response_model=ProtectionScoreResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        409: {"model": ErrorResponse, "description": "Model not ready"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+    },
+)
 async def get_protection_score(
     model_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_active_user),
 ):
     result = await db.execute(select(Model).where(Model.id == model_id))
     model_row = result.scalar_one_or_none()
@@ -118,11 +141,7 @@ async def get_protection_score(
     if not model_row:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    if model_row.base_trust_score is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Model has no base trust score stored.",
-        )
+    ensure_model_ready(model_row, action="protection score")
 
     protected_score = (
         float(model_row.protected_score)

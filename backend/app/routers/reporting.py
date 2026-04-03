@@ -5,9 +5,11 @@ from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import require_active_user
 from app.models.model import Model
 from app.models.request_log import RequestLog
-from app.models.schemas import ComparisonReportResponse
+from app.schemas import ComparisonReportResponse, ErrorResponse, TokenData
+from app.services.model_readiness import ensure_model_ready
 
 router = APIRouter()
 
@@ -19,16 +21,26 @@ def _safe_float(value, default=0.0):
         return default
 
 
-@router.get("/{model_id}/comparison", response_model=ComparisonReportResponse)
+@router.get(
+    "/{model_id}/comparison",
+    response_model=ComparisonReportResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        409: {"model": ErrorResponse, "description": "Model not ready"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+    },
+)
 async def get_model_comparison_report(
     model_id: int,
     db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_active_user),
 ):
     model_result = await db.execute(select(Model).where(Model.id == model_id))
     model_row = model_result.scalar_one_or_none()
 
     if not model_row:
         raise HTTPException(status_code=404, detail="Model not found")
+    ensure_model_ready(model_row, action="reporting")
 
     metrics_query = select(
         func.count(RequestLog.id).label("total_requests"),

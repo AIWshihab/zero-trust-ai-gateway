@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.schemas import ModelCreate, ModelOut, RiskLevel, SensitivityLevel, ModelType
+from app.schemas import ModelCreate, ModelOut, RiskLevel, ScanStatus, SensitivityLevel, ModelType
 from app.models.model import Model
 
 
@@ -22,7 +22,12 @@ SENSITIVITY_SCORE_MAP = {
 
 
 async def register_model(db: AsyncSession, model: ModelCreate) -> ModelOut:
-    db_model = Model(**model.model_dump())
+    model_data = model.model_dump()
+    model_data["scan_status"] = ScanStatus.PENDING.value
+    model_data["secure_mode_enabled"] = False
+    model_data["base_trust_score"] = None
+    model_data["protected_score"] = None
+    db_model = Model(**model_data)
     db.add(db_model)
     await db.commit()
     await db.refresh(db_model)
@@ -100,6 +105,7 @@ async def seed_default_models(db: AsyncSession) -> None:
             risk_level=RiskLevel.MEDIUM,
             endpoint="https://api.openai.com/v1/chat/completions",
             is_active=True,
+            scan_status=ScanStatus.PENDING.value,
         ),
         Model(
             name="Mistral-7B",
@@ -109,6 +115,7 @@ async def seed_default_models(db: AsyncSession) -> None:
             risk_level=RiskLevel.LOW,
             endpoint="http://localhost:8001/generate",
             is_active=True,
+            scan_status=ScanStatus.PENDING.value,
         ),
         Model(
             name="Internal Classifier",
@@ -118,6 +125,7 @@ async def seed_default_models(db: AsyncSession) -> None:
             risk_level=RiskLevel.HIGH,
             endpoint=None,
             is_active=True,
+            scan_status=ScanStatus.PENDING.value,
         ),
     ]
 

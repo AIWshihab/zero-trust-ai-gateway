@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, Column, Float, Integer, String, Text, DateTime, 
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-from app.models.schemas import ModelType, SensitivityLevel, RiskLevel
+from app.schemas import ModelType, SensitivityLevel, RiskLevel
 
 
 class Model(Base):

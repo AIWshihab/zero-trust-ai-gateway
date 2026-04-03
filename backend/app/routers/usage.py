@@ -18,13 +18,15 @@ from app.core.trust_score import (
     update_trust_score,
 )
 from app.models.model import Model
-from app.models.schemas import (
+from app.schemas import (
+    ErrorResponse,
     InferenceRequest,
     SafeInferenceResponse,
     RequestDecision,
     TokenData,
 )
-from app.services.logger import log_request
+from app.services.model_readiness import ensure_model_ready
+from app.services.db_logger import log_request_db
 from app.services.model_router import route_to_model
 from app.services.prompt_guard import evaluate_prompt_guard, GuardDecision
 
@@ -53,7 +55,17 @@ def _guard_to_request_decision(value: GuardDecision) -> RequestDecision:
     return RequestDecision.ALLOW
 
 
-@router.post("/infer", response_model=SafeInferenceResponse)
+@router.post(
+    "/infer",
+    response_model=SafeInferenceResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        403: {"model": ErrorResponse, "description": "Model inactive"},
+        409: {"model": ErrorResponse, "description": "Model not ready"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+        500: {"model": ErrorResponse, "description": "Inference failed"},
+    },
+)
 async def safe_infer(
     payload: InferenceRequest,
     db: AsyncSession = Depends(get_db),
@@ -67,6 +79,9 @@ async def safe_infer(
 
     if not model_row:
         raise HTTPException(status_code=404, detail="Model not found")
+    if not bool(model_row.is_active):
+        raise HTTPException(status_code=403, detail="Model is inactive")
+    ensure_model_ready(model_row, action="inference")
 
     model_sensitivity = (
         model_row.sensitivity_level.value
@@ -82,8 +97,9 @@ async def safe_infer(
 
         update_trust_score(username, decision)
 
-        await log_request(
-            user_id=username,
+        await log_request_db(
+            db,
+            user_id=current_user.user_id,
             model_id=model_row.id,
             prompt_hash=hash_prompt(payload.prompt),
             security_score=1.0,
@@ -162,8 +178,9 @@ async def safe_infer(
 
         update_trust_score(username, final_decision)
 
-        await log_request(
-            user_id=username,
+        await log_request_db(
+            db,
+            user_id=current_user.user_id,
             model_id=model_row.id,
             prompt_hash=hash_prompt(payload.prompt),
             security_score=security_score,
@@ -199,8 +216,9 @@ async def safe_infer(
 
         update_trust_score(username, RequestDecision.BLOCK)
 
-        await log_request(
-            user_id=username,
+        await log_request_db(
+            db,
+            user_id=current_user.user_id,
             model_id=model_row.id,
             prompt_hash=hash_prompt(payload.prompt),
             security_score=max(security_score, prompt_risk_score),
@@ -218,8 +236,9 @@ async def safe_infer(
 
         update_trust_score(username, RequestDecision.BLOCK)
 
-        await log_request(
-            user_id=username,
+        await log_request_db(
+            db,
+            user_id=current_user.user_id,
             model_id=model_row.id,
             prompt_hash=hash_prompt(payload.prompt),
             security_score=max(security_score, prompt_risk_score),
@@ -263,8 +282,9 @@ async def safe_infer(
 
     update_trust_score(username, final_decision)
 
-    await log_request(
-        user_id=username,
+    await log_request_db(
+        db,
+        user_id=current_user.user_id,
         model_id=model_row.id,
         prompt_hash=hash_prompt(payload.prompt),
         security_score=combined_security_score,

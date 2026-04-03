@@ -10,7 +10,8 @@ from app.core.security import hash_prompt, require_active_user
 from app.core.trust_score import get_user_trust_penalty, update_trust_score
 from app.core.config import get_settings
 
-from app.models.schemas import (
+from app.schemas import (
+    ErrorResponse,
     TokenData,
     DetectRequest,
     DetectResponse,
@@ -18,17 +19,17 @@ from app.models.schemas import (
     InferenceResponse,
     RequestDecision,
 )
-from app.models.registry import (
+from app.services.model_registry import (
     get_model,
     get_model_risk_score,
     get_model_sensitivity_score,
 )
 from app.services.prompt_guard import evaluate_prompt_guard, GuardDecision
 from app.services.model_router import route_to_model
-from app.services.logger import log_request
+from app.services.db_logger import log_request_db
+from app.services.model_readiness import ensure_model_ready
 
 router = APIRouter()
-settings = get_settings()
 
 
 def _map_guard_decision_to_request_decision(guard_decision: GuardDecision) -> RequestDecision:
@@ -41,7 +42,14 @@ def _map_guard_decision_to_request_decision(guard_decision: GuardDecision) -> Re
 
 # ─── Prompt Detection Only (no inference) ────────────────────────────────────
 
-@router.post("/", response_model=DetectResponse)
+@router.post(
+    "/",
+    response_model=DetectResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+    },
+)
 async def detect_prompt(
     payload: DetectRequest,
     db: AsyncSession = Depends(get_db),
@@ -92,7 +100,17 @@ async def detect_prompt(
 
 # ─── Full Inference Request ───────────────────────────────────────────────────
 
-@router.post("/infer", response_model=InferenceResponse)
+@router.post(
+    "/infer",
+    response_model=InferenceResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        403: {"model": ErrorResponse, "description": "Model inactive or forbidden"},
+        409: {"model": ErrorResponse, "description": "Model not ready"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+        500: {"model": ErrorResponse, "description": "Inference failed"},
+    },
+)
 async def infer(
     payload: InferenceRequest,
     db: AsyncSession = Depends(get_db),
@@ -100,7 +118,7 @@ async def infer(
 ):
     start_time = time.time()
     parameters = payload.parameters or {}
-    print(payload.prompt)
+    current_settings = get_settings()
 
     # ── Step 1: Validate model ─────────────────────────────────────────────
     model = await get_model(db=db, model_id=payload.model_id)
@@ -114,17 +132,19 @@ async def infer(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Model {payload.model_id} is inactive",
         )
+    ensure_model_ready(model, action="inference")
 
     # ── Step 2: Record request for rate limiter ────────────────────────────
     record_request(current_user.username)
 
     # ── Step 3: ZTA Toggle ─────────────────────────────────────────────────
-    if not settings.ZTA_ENABLED:
+    if not current_settings.ZTA_ENABLED:
         output = await route_to_model(model, payload.prompt, parameters)
         latency_ms = round((time.time() - start_time) * 1000, 2)
 
-        await log_request(
-            user_id=current_user.username,
+        await log_request_db(
+            db,
+            user_id=current_user.user_id,
             model_id=payload.model_id,
             prompt_hash=hash_prompt(payload.prompt),
             security_score=0.0,
@@ -194,13 +214,17 @@ async def infer(
 
     # ── Step 6: Enforce decision ───────────────────────────────────────────
     if decision == RequestDecision.BLOCK:
-        await log_request(
-            user_id=current_user.username,
+        await log_request_db(
+            db,
+            user_id=current_user.user_id,
             model_id=payload.model_id,
             prompt_hash=hash_prompt(payload.prompt),
             security_score=security_score,
             decision=decision,
             latency_ms=latency_ms,
+            blocked=True,
+            secure_mode_enabled=False,
+            reason=reason,
         )
         return InferenceResponse(
             model_id=payload.model_id,
@@ -220,13 +244,17 @@ async def infer(
     latency_ms = round((time.time() - start_time) * 1000, 2)
 
     # ── Step 8: Log request ────────────────────────────────────────────────
-    await log_request(
-        user_id=current_user.username,
+    await log_request_db(
+        db,
+        user_id=current_user.user_id,
         model_id=payload.model_id,
         prompt_hash=hash_prompt(payload.prompt),
         security_score=security_score,
         decision=decision,
         latency_ms=latency_ms,
+        blocked=False,
+        secure_mode_enabled=False,
+        reason=reason,
     )
 
     return InferenceResponse(

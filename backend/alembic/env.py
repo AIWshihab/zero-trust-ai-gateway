@@ -14,6 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.core.database import Base
 from app.models.user import User
 from app.models.model import Model
+from app.models.request_log import RequestLog
 
 from app.core.config import settings
 

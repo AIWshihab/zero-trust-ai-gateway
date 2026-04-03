@@ -3,8 +3,15 @@ from fastapi import APIRouter, HTTPException, status, Depends
 
 from app.core.security import require_active_user, require_admin
 from app.core.database import get_db
-from app.models.schemas import ModelCreate, ModelOut, TokenData
-from app.models.registry import (
+from app.schemas import (
+    ErrorResponse,
+    MessageResponse,
+    ModelCreate,
+    ModelOut,
+    ModelRiskInfoResponse,
+    TokenData,
+)
+from app.services.model_registry import (
     register_model,
     get_model,
     get_all_models,
@@ -16,7 +23,11 @@ from app.models.registry import (
 router = APIRouter()
 
 
-@router.get("/", response_model=list[ModelOut])
+@router.get(
+    "/",
+    response_model=list[ModelOut],
+    responses={401: {"model": ErrorResponse, "description": "Unauthorized"}},
+)
 async def list_models(
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(require_active_user),
@@ -24,7 +35,14 @@ async def list_models(
     return await get_all_models(db=db)
 
 
-@router.get("/{model_id}", response_model=ModelOut)
+@router.get(
+    "/{model_id}",
+    response_model=ModelOut,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+    },
+)
 async def get_single_model(
     model_id: int,
     db: AsyncSession = Depends(get_db),
@@ -39,7 +57,15 @@ async def get_single_model(
     return model
 
 
-@router.post("/", response_model=ModelOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=ModelOut,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        403: {"model": ErrorResponse, "description": "Admin access required"},
+    },
+)
 async def create_model(
     model: ModelCreate,
     db: AsyncSession = Depends(get_db),
@@ -48,7 +74,16 @@ async def create_model(
     return await register_model(db=db, model=model)
 
 
-@router.delete("/{model_id}", status_code=status.HTTP_200_OK)
+@router.delete(
+    "/{model_id}",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        403: {"model": ErrorResponse, "description": "Admin access required"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+    },
+)
 async def remove_model(
     model_id: int,
     db: AsyncSession = Depends(get_db),
@@ -63,7 +98,15 @@ async def remove_model(
     return {"message": f"Model {model_id} deactivated successfully"}
 
 
-@router.get("/{model_id}/risk", status_code=status.HTTP_200_OK)
+@router.get(
+    "/{model_id}/risk",
+    response_model=ModelRiskInfoResponse,
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {"model": ErrorResponse, "description": "Unauthorized"},
+        404: {"model": ErrorResponse, "description": "Model not found"},
+    },
+)
 async def get_model_risk_info(
     model_id: int,
     db: AsyncSession = Depends(get_db),
