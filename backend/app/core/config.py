@@ -1,6 +1,9 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
 class Settings(BaseSettings):
     # App
@@ -35,11 +38,11 @@ class Settings(BaseSettings):
     WEIGHT_USER_TRUST_PENALTY: float = 0.10
 
     # Database — asyncpg for runtime, override in .env
-    DATABASE_URL: str = "postgresql+asyncpg://appuser:apppass@localhost:5432/appdb"
+    DATABASE_URL: str = os.getenv("DATABASE_URL")
 
     # OpenAI (optional)
-    OPENAI_API_KEY: str = ""
-    HF_TOKEN: str = ""
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
+    HF_TOKEN: str = os.getenv("HF_TOKEN")
 
 
     model_config = {
