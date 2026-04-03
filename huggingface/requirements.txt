@@ -1,8 +1,0 @@
-fastapi
-uvicorn[standard]
-transformers
-peft
-accelerate
-bitsandbytes
-torch
-sentencepiece
