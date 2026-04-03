@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from app.models.schemas import RequestDecision
+from app.schemas import RequestDecision
 
 LOG_FILE = Path("monitoring/request_logs.jsonl")
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)

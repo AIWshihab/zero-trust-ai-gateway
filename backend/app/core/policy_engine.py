@@ -1,5 +1,5 @@
 from app.core.config import get_settings
-from app.models.schemas import RequestDecision
+from app.schemas import RequestDecision
 
 settings = get_settings()
 

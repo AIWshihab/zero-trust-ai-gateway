@@ -81,6 +81,7 @@ async def run_behavioral_tests(
     model_type: str | None,
     endpoint: str | None,
     provider_name: str | None,
+    hf_model_id: str | None = None,
 ) -> dict[str, Any]:
     findings: list[str] = []
     passed_tests = 0

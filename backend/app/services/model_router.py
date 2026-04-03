@@ -1,7 +1,7 @@
 import httpx
 from fastapi import HTTPException, status
 
-from app.models.schemas import ModelType
+from app.schemas import ModelType
 
 try:
     from app.core.config import get_settings
@@ -13,8 +13,9 @@ except Exception:
 async def route_to_model(
     model,
     prompt: str,
-    parameters: dict = {},
+    parameters: dict | None = None,
 ) -> str:
+    parameters = parameters or {}
     routers = {
         ModelType.OPENAI: _call_openai,
         ModelType.HUGGINGFACE: _call_huggingface_chat,
@@ -50,7 +51,7 @@ async def _call_openai(model, prompt: str, parameters: dict) -> str:
     }
 
     payload = {
-        "model": "gpt-4o",
+        "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": parameters.get("max_tokens", 512),
         "temperature": parameters.get("temperature", 0.7),

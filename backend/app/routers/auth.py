@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import create_access_token, get_current_user
-from app.models.schemas import TokenData, TokenResponse, UserCreate, UserResponse
+from app.schemas import ErrorResponse, MessageResponse, TokenData, TokenResponse, UserCreate, UserResponse
 from app.services.user_service import (
     authenticate_user,
     create_user,
@@ -22,8 +22,20 @@ router = APIRouter()
 # ─── Signup ───────────────────────────────────────────────────────────────────
 
 
-@router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/signup",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        409: {"model": ErrorResponse, "description": "Email or username already exists"},
+    },
+)
 async def signup(data: UserCreate, db: AsyncSession = Depends(get_db)):
+    if data.username.lower() == "admin":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username reserved",
+        )
     if await get_user_by_email(db, data.email):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -40,7 +52,14 @@ async def signup(data: UserCreate, db: AsyncSession = Depends(get_db)):
 # ─── Login ────────────────────────────────────────────────────────────────────
 
 
-@router.post("/token", response_model=TokenResponse)
+@router.post(
+    "/token",
+    response_model=TokenResponse,
+    responses={
+        401: {"model": ErrorResponse, "description": "Invalid credentials"},
+        403: {"model": ErrorResponse, "description": "User account disabled"},
+    },
+)
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
@@ -59,7 +78,17 @@ async def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled",
         )
-    payload = {"sub": str(user.id), "email": user.email,"username": user.username,"scopes":  ["user","admin"]}
+    scopes = ["user"]
+    if user.is_admin:
+        scopes.append("admin")
+
+    payload = {
+        "sub": user.username,
+        "uid": user.id,
+        "email": user.email,
+        "username": user.username,
+        "scopes": scopes,
+    }
     access_token = create_access_token(
         data=payload,
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
@@ -75,7 +104,11 @@ async def login(
 # ─── Current User ─────────────────────────────────────────────────────────────
 
 
-@router.get("/me", response_model=TokenData)
+@router.get(
+    "/me",
+    response_model=TokenData,
+    responses={401: {"model": ErrorResponse, "description": "Unauthorized"}},
+)
 async def get_me(current_user: TokenData = Depends(get_current_user)):
     return current_user
 
@@ -83,7 +116,7 @@ async def get_me(current_user: TokenData = Depends(get_current_user)):
 # ─── Logout ───────────────────────────────────────────────────────────────────
 
 
-@router.post("/logout")
+@router.post("/logout", response_model=MessageResponse)
 async def logout():
     # JWT is stateless — instruct client to discard token
     return {"message": "Logged out successfully. Discard your token."}

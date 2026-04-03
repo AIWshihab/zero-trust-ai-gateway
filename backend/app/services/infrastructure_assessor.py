@@ -1,4 +1,5 @@
 from typing import Any
+import time
 from urllib.parse import urlparse
 
 import httpx
@@ -31,10 +32,11 @@ async def _probe_endpoint(endpoint: str) -> dict[str, Any]:
 
     try:
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-            start = httpx.Timeout
+            start = time.perf_counter()
             resp = await client.get(endpoint)
             status_code = resp.status_code
             reachable = resp.status_code < 500
+            response_time_ms = round((time.perf_counter() - start) * 1000, 2)
 
             if resp.status_code in {401, 403}:
                 auth_required = True

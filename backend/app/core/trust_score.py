@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from app.models.schemas import RequestDecision
+from app.schemas import RequestDecision
 
 # username -> trust score (0.0 to 1.0, higher is better)
 _user_trust_scores: dict[str, float] = defaultdict(lambda: 0.8)

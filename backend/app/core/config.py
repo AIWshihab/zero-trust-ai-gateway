@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     PROMPT_ANALYSIS_ENABLED: bool = True
     RATE_LIMITING_ENABLED: bool = True
     USER_TRUST_SCORE_ENABLED: bool = True
+    CORS_ALLOW_ORIGINS: list[str] = ["http://localhost:3000"]
 
     # JWT
     SECRET_KEY: str = "change-me-in-production"

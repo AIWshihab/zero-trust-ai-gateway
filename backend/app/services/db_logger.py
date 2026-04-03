@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.request_log import RequestLog
-from app.models.schemas import RequestDecision
+from app.schemas import RequestDecision
 
 
 def _normalize_decision(value) -> str:
@@ -43,4 +43,6 @@ async def log_request_db(
 
     db.add(row)
     await db.flush()
+    await db.commit()
+    await db.refresh(row)
     return row

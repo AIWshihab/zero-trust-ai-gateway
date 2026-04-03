@@ -1,11 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from passlib.context import CryptContext
 from app.models.user import User
-from app.models.schemas import UserCreate
-from app.core.security import hash_password
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from app.schemas import UserCreate
+from app.core.security import hash_password, password_needs_rehash, verify_password
 
 async def authenticate_user(db: AsyncSession, username: str, password: str) -> User | None:
     # Accept login by either username or email
@@ -14,6 +11,10 @@ async def authenticate_user(db: AsyncSession, username: str, password: str) -> U
         return None
     if not verify_password(password, user.hashed_password):
         return None
+    if password_needs_rehash(user.hashed_password):
+        user.hashed_password = hash_password(password)
+        await db.commit()
+        await db.refresh(user)
     return user
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
@@ -34,6 +35,3 @@ async def create_user(db: AsyncSession, data: UserCreate) -> User:
     await db.commit()
     await db.refresh(user)
     return user
-
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)

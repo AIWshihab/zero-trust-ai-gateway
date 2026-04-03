@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import require_active_user, require_admin
 from app.models.request_log import RequestLog
-from app.models.schemas import TokenData, RequestDecision
+from app.schemas import TokenData, RequestDecision
 from app.core.trust_score import (
     get_trust_profile,
     get_all_trust_profiles,
@@ -138,8 +138,8 @@ async def my_logs(
     current_user: TokenData = Depends(require_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # current zip auth flow uses username in token data, but DB request log currently stores user_id.
-    # So this only works if user_id is available on token; otherwise returns empty safely.
+    # Request logs are keyed by numeric user_id.
+    # If user_id is missing in token, return safely without leaking data.
     user_id = getattr(current_user, "user_id", None)
 
     if user_id is None:
