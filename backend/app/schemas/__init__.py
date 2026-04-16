@@ -5,7 +5,13 @@ from app.schemas.detect import DetectRequest, DetectResponse
 from app.schemas.enums import ModelType, RequestDecision, RiskLevel, ScanStatus, SensitivityLevel
 from app.schemas.inference import InferenceRequest, InferenceResponse, SafeInferenceResponse
 from app.schemas.model import ModelBase, ModelCreate, ModelOut, ModelRiskInfoResponse
-from app.schemas.monitoring import MetricsSummary, RequestLog
+from app.schemas.monitoring import (
+    MetricsSummary,
+    ModelPostureEventResponse,
+    RequestLog,
+    UserTrustEventResponse,
+    ValueChangeEvent,
+)
 from app.schemas.protection import ProtectionConfig, ProtectionScoreResponse
 from app.schemas.reporting import ComparisonReportResponse
 from app.schemas.user import UserCreate, UserResponse
@@ -23,6 +29,7 @@ __all__ = [
     "ModelBase",
     "ModelCreate",
     "ModelOut",
+    "ModelPostureEventResponse",
     "ModelRiskInfoResponse",
     "ModelScanRequest",
     "ModelScanResponse",
@@ -41,4 +48,6 @@ __all__ = [
     "TrustBreakdownSchema",
     "UserCreate",
     "UserResponse",
+    "UserTrustEventResponse",
+    "ValueChangeEvent",
 ]

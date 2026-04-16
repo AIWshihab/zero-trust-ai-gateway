@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
@@ -26,16 +27,33 @@ class TrustBreakdownSchema(BaseModel):
 class ModelScanResponse(BaseModel):
     model_id: int
     model_name: str
+    name: str
     model_type: ModelType
     provider_name: Optional[str] = None
 
     base_trust_score: float = Field(..., ge=0, le=100)
     breakdown: TrustBreakdownSchema
 
+    # Optional posture/risk values introduced for adaptive security evolution.
+    base_risk_score: Optional[float] = Field(None, ge=0, le=100)
+    secured_risk_score: Optional[float] = Field(None, ge=0, le=100)
+    risk_reduction_pct: Optional[float] = Field(None, ge=0, le=100)
+
+    posture_factors: dict[str, Any] = Field(default_factory=dict)
+    secured_risk_controls: dict[str, Any] = Field(default_factory=dict)
+
+    posture_explanations: list[str] = Field(default_factory=list)
+    risk_reduction_explanations: list[str] = Field(default_factory=list)
+
+    posture_assessed_at: Optional[datetime] = None
+    posture_expires_at: Optional[datetime] = None
+    scan_valid_until: Optional[datetime] = None
+
     findings: list[str] = Field(default_factory=list)
     limitations: list[str] = Field(default_factory=list)
 
     secure_mode_enabled: bool = False
     scan_status: ScanStatus
+    scanned_at: Optional[datetime] = None
 
     raw_inputs: dict[str, Any] = Field(default_factory=dict)

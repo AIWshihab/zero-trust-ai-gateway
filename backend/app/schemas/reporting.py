@@ -14,6 +14,9 @@ class ComparisonReportResponse(BaseModel):
 
     secure_mode_enabled: bool
     total_requests: int
+    blocked_count: int
+    challenged_count: int
+    allowed_count: int
     blocked_requests: int
     challenged_requests: int
     allowed_requests: int

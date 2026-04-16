@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +26,8 @@ async def log_request_db(
     blocked: Optional[bool] = None,
     secure_mode_enabled: Optional[bool] = None,
     reason: Optional[str] = None,
+    decision_input_snapshot: Optional[dict[str, Any]] = None,
+    decision_trace: Optional[dict[str, Any]] = None,
 ) -> RequestLog:
     row = RequestLog(
         user_id=user_id,
@@ -38,6 +40,8 @@ async def log_request_db(
         blocked=bool(blocked) if blocked is not None else False,
         secure_mode_enabled=bool(secure_mode_enabled) if secure_mode_enabled is not None else False,
         reason=reason,
+        decision_input_snapshot=decision_input_snapshot,
+        decision_trace=decision_trace,
         latency_ms=float(latency_ms),
     )
 

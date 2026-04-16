@@ -32,12 +32,17 @@ async def get_db():
 
 
 async def init_db():
-    # import models here so SQLAlchemy metadata knows all tables
+    # Import models so SQLAlchemy metadata is fully registered.
+    # We intentionally avoid unconditional create_all() here to prevent
+    # migration drift; schema should be managed by Alembic.
     from app.models.user import User
     from app.models.model import Model
     from app.models.request_log import RequestLog
+    from app.models.user_trust_event import UserTrustEvent
+    from app.models.model_posture_event import ModelPostureEvent
 
-    _ = (User, Model, RequestLog)
+    _ = (User, Model, RequestLog, UserTrustEvent, ModelPostureEvent)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if settings.AUTO_INIT_SCHEMA:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)

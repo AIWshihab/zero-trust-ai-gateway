@@ -129,4 +129,5 @@ async def get_model_risk_info(
         "sensitivity_level": model.sensitivity_level,
         "risk_score": risk_score,
         "sensitivity_score": sensitivity_score,
+        "secure_mode_enabled": bool(getattr(model, "secure_mode_enabled", False)),
     }

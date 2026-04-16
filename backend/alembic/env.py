@@ -15,6 +15,8 @@ from app.core.database import Base
 from app.models.user import User
 from app.models.model import Model
 from app.models.request_log import RequestLog
+from app.models.user_trust_event import UserTrustEvent
+from app.models.model_posture_event import ModelPostureEvent
 
 from app.core.config import settings
 

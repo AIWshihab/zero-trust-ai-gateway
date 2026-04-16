@@ -1,9 +1,35 @@
-from functools import lru_cache
-from pydantic_settings import BaseSettings
-from dotenv import load_dotenv
 import os
+from functools import lru_cache
+
+from dotenv import load_dotenv
+from pydantic import field_validator
+from pydantic_settings import BaseSettings
 
 load_dotenv()
+
+
+def _coerce_bool_env(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if value is None:
+        return value
+
+    normalized = str(value).strip().lower()
+    truthy = {"1", "true", "t", "yes", "y", "on", "debug", "development", "dev"}
+    falsy = {"0", "false", "f", "no", "n", "off", "release", "prod", "production"}
+
+    if normalized in truthy:
+        return True
+    if normalized in falsy:
+        return False
+
+    raise ValueError(
+        f"Invalid boolean-like value: {value!r}. "
+        "Use one of true/false/1/0/on/off/debug/release."
+    )
+
 
 class Settings(BaseSettings):
     # App
@@ -16,6 +42,11 @@ class Settings(BaseSettings):
     RATE_LIMITING_ENABLED: bool = True
     USER_TRUST_SCORE_ENABLED: bool = True
     CORS_ALLOW_ORIGINS: list[str] = ["http://localhost:3000"]
+
+    # Startup DB behavior
+    # Keep this False in normal development and production.
+    # Rely on Alembic migrations instead of implicit table creation.
+    AUTO_INIT_SCHEMA: bool = False
 
     # JWT
     SECRET_KEY: str = "change-me-in-production"
@@ -44,12 +75,25 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
     HF_TOKEN: str = os.getenv("HF_TOKEN")
 
-
     model_config = {
         "env_file": ".env",
         "case_sensitive": True,
         "extra": "ignore",
     }
+
+    @field_validator(
+        "DEBUG",
+        "ZTA_ENABLED",
+        "MODEL_RISK_ENABLED",
+        "PROMPT_ANALYSIS_ENABLED",
+        "RATE_LIMITING_ENABLED",
+        "USER_TRUST_SCORE_ENABLED",
+        "AUTO_INIT_SCHEMA",
+        mode="before",
+    )
+    @classmethod
+    def _parse_loose_bool(cls, value):
+        return _coerce_bool_env(value)
 
 
 @lru_cache

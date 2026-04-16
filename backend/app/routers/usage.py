@@ -14,8 +14,8 @@ from app.core.rate_limiter import (
 )
 from app.core.security import require_active_user, hash_prompt
 from app.core.trust_score import (
-    get_user_trust_penalty,
-    update_trust_score,
+    get_behavior_context,
+    record_behavior_event,
 )
 from app.models.model import Model
 from app.schemas import (
@@ -29,6 +29,11 @@ from app.services.model_readiness import ensure_model_ready
 from app.services.db_logger import log_request_db
 from app.services.model_router import route_to_model
 from app.services.prompt_guard import evaluate_prompt_guard, GuardDecision
+from app.services.reassessment_service import (
+    get_user_trust_penalty_persistent,
+    reassess_model_posture,
+    reassess_user_trust_on_request,
+)
 
 router = APIRouter()
 
@@ -53,6 +58,68 @@ def _guard_to_request_decision(value: GuardDecision) -> RequestDecision:
     if value == GuardDecision.CHALLENGE:
         return RequestDecision.CHALLENGE
     return RequestDecision.ALLOW
+
+
+def _safe_float(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except Exception:
+        return None
+
+
+def _model_base_risk_score(model_row: Model) -> float | None:
+    persisted = _safe_float(model_row.base_risk_score)
+    if persisted is not None:
+        return max(0.0, min(100.0, persisted))
+
+    if model_row.base_trust_score is None:
+        return None
+
+    try:
+        return max(0.0, min(100.0, 100.0 - float(model_row.base_trust_score)))
+    except Exception:
+        return None
+
+
+def _decision_snapshot(
+    *,
+    policy_result: dict,
+    guard_result,
+    behavior_context: dict,
+    model_base_risk_score: float | None,
+    secure_mode_enabled: bool,
+    request_rate_score: float,
+    policy_decision: RequestDecision,
+    final_decision: RequestDecision,
+) -> tuple[dict, dict]:
+    guard_decision = guard_result.decision.value if hasattr(guard_result.decision, "value") else str(guard_result.decision)
+
+    decision_input_snapshot = {
+        "secure_mode_enabled": bool(secure_mode_enabled),
+        "model_base_risk_score": model_base_risk_score,
+        "policy_inputs": policy_result.get("inputs", {}),
+        "effective_thresholds": policy_result.get("effective_thresholds", {}),
+        "adaptive_reasons": policy_result.get("adaptive_reasons", []),
+        "behavior_context": behavior_context,
+        "guard": {
+            "decision": guard_decision,
+            "prompt_risk_score": float(getattr(guard_result, "prompt_risk_score", 0.0)),
+            "flags": list(getattr(guard_result, "flags", [])),
+        },
+        "request_rate_score": round(float(request_rate_score), 4),
+    }
+
+    decision_trace = {
+        "policy_decision": policy_decision.value,
+        "guard_decision": guard_decision,
+        "final_decision": final_decision.value,
+        "adaptive_reasons": policy_result.get("adaptive_reasons", []),
+        "secure_mode_enabled": bool(secure_mode_enabled),
+    }
+
+    return decision_input_snapshot, decision_trace
 
 
 @router.post(
@@ -88,14 +155,62 @@ async def safe_infer(
         if hasattr(model_row.sensitivity_level, "value")
         else str(model_row.sensitivity_level or "medium")
     )
+    secure_mode_enabled = bool(model_row.secure_mode_enabled)
+
+    # Continuous reassessment pre-check: apply stale/drift posture adjustments
+    # before we evaluate this request.
+    await reassess_model_posture(
+        db,
+        model_row=model_row,
+        trigger="request_precheck",
+        request_context={
+            "decision": "allow",
+            "secure_mode_enabled": secure_mode_enabled,
+        },
+        commit=False,
+    )
 
     # Hard rate limit fast-path
     if is_rate_limited(username):
         latency_ms = (time.perf_counter() - started) * 1000.0
         decision = RequestDecision.BLOCK
         reason = "Blocked by hard rate limit."
+        behavior_context = get_behavior_context(username)
 
-        update_trust_score(username, decision)
+        trust_update = await reassess_user_trust_on_request(
+            db,
+            user_id=current_user.user_id,
+            username=username,
+            decision=decision,
+            prompt_risk_score=0.0,
+            security_score=1.0,
+            request_rate_score=1.0,
+            secure_mode_enabled=secure_mode_enabled,
+            behavior_context=behavior_context,
+            reason_prefix="Hard rate limit triggered immediate trust reassessment.",
+            commit=False,
+        )
+        updated_behavior_context = record_behavior_event(
+            username,
+            decision,
+            prompt_risk_score=0.0,
+            security_score=1.0,
+            request_rate_score=1.0,
+            secure_mode_enabled=secure_mode_enabled,
+        )
+        await reassess_model_posture(
+            db,
+            model_row=model_row,
+            trigger="request_outcome",
+            request_context={
+                "decision": decision.value,
+                "request_rate_score": 1.0,
+                "prompt_risk_score": 0.0,
+                "security_score": 1.0,
+                "secure_mode_enabled": secure_mode_enabled,
+            },
+            commit=False,
+        )
 
         await log_request_db(
             db,
@@ -108,26 +223,46 @@ async def safe_infer(
             prompt_risk_score=0.0,
             output_risk_score=0.0,
             blocked=True,
-            secure_mode_enabled=bool(model_row.secure_mode_enabled),
+            secure_mode_enabled=secure_mode_enabled,
             reason=reason,
+            decision_input_snapshot={
+                "secure_mode_enabled": secure_mode_enabled,
+                "request_rate_score": 1.0,
+                "behavior_context_before": behavior_context,
+                "behavior_context_after": updated_behavior_context,
+                "trust_update": trust_update,
+            },
+            decision_trace={
+                "policy_decision": "block",
+                "guard_decision": "not_evaluated",
+                "final_decision": "block",
+                "adaptive_reasons": ["hard rate limit triggered immediate block"],
+                "secure_mode_enabled": secure_mode_enabled,
+            },
         )
 
         return SafeInferenceResponse(
             model_id=model_row.id,
             output=None,
             decision=decision,
+            security_score=1.0,
             prompt_risk_score=0.0,
             output_risk_score=0.0,
             blocked=True,
             reason=reason,
             latency_ms=latency_ms,
-            secure_mode_enabled=bool(model_row.secure_mode_enabled),
+            secure_mode_enabled=secure_mode_enabled,
         )
 
     # Record request for sliding-window rate score
     record_request(username)
     request_rate_score = get_request_rate_score(username)
-    user_trust_penalty = get_user_trust_penalty(username)
+    user_trust_penalty = await get_user_trust_penalty_persistent(
+        db,
+        user_id=current_user.user_id,
+        username=username,
+    )
+    behavior_context = get_behavior_context(username)
 
     guard_result = await evaluate_prompt_guard(
         payload.prompt,
@@ -138,12 +273,12 @@ async def safe_infer(
 
     prompt_risk_score = float(guard_result.prompt_risk_score)
 
+    model_base_risk_score = _model_base_risk_score(model_row)
     model_risk_score = 0.5
-    if model_row.base_trust_score is not None:
-        model_risk_score = max(
-            0.0,
-            min(1.0, 1.0 - (float(model_row.base_trust_score) / 100.0)),
-        )
+    if model_base_risk_score is not None:
+        model_risk_score = max(0.0, min(1.0, model_base_risk_score / 100.0))
+    elif model_row.base_trust_score is not None:
+        model_risk_score = max(0.0, min(1.0, 1.0 - (float(model_row.base_trust_score) / 100.0)))
 
     policy_result = evaluate_request(
         model_risk_score=model_risk_score,
@@ -151,6 +286,11 @@ async def safe_infer(
         prompt_risk_score=prompt_risk_score,
         request_rate_score=request_rate_score,
         user_trust_penalty=user_trust_penalty,
+        secure_mode_enabled=secure_mode_enabled,
+        recent_risky_events=behavior_context.get("recent_risky_events", 0),
+        recent_blocks=behavior_context.get("recent_blocks", 0),
+        recent_challenges=behavior_context.get("recent_challenges", 0),
+        model_base_risk_score=model_base_risk_score,
     )
 
     policy_decision = policy_result.get("decision", RequestDecision.ALLOW)
@@ -173,10 +313,53 @@ async def safe_infer(
     else:
         final_reason = f"Allowed by gateway policy. {policy_reason} | PromptGuard: {guard_result.reason}"
 
+    decision_input_snapshot, decision_trace = _decision_snapshot(
+        policy_result=policy_result,
+        guard_result=guard_result,
+        behavior_context=behavior_context,
+        model_base_risk_score=model_base_risk_score,
+        secure_mode_enabled=secure_mode_enabled,
+        request_rate_score=request_rate_score,
+        policy_decision=policy_decision,
+        final_decision=final_decision,
+    )
+
     if final_decision == RequestDecision.BLOCK:
         latency_ms = (time.perf_counter() - started) * 1000.0
 
-        update_trust_score(username, final_decision)
+        trust_update = await reassess_user_trust_on_request(
+            db,
+            user_id=current_user.user_id,
+            username=username,
+            decision=final_decision,
+            prompt_risk_score=prompt_risk_score,
+            security_score=security_score,
+            request_rate_score=request_rate_score,
+            secure_mode_enabled=secure_mode_enabled,
+            behavior_context=behavior_context,
+            commit=False,
+        )
+        record_behavior_event(
+            username,
+            final_decision,
+            prompt_risk_score=prompt_risk_score,
+            security_score=security_score,
+            request_rate_score=request_rate_score,
+            secure_mode_enabled=secure_mode_enabled,
+        )
+        await reassess_model_posture(
+            db,
+            model_row=model_row,
+            trigger="request_outcome",
+            request_context={
+                "decision": final_decision.value,
+                "request_rate_score": request_rate_score,
+                "prompt_risk_score": prompt_risk_score,
+                "security_score": security_score,
+                "secure_mode_enabled": secure_mode_enabled,
+            },
+            commit=False,
+        )
 
         await log_request_db(
             db,
@@ -189,20 +372,23 @@ async def safe_infer(
             prompt_risk_score=prompt_risk_score,
             output_risk_score=0.0,
             blocked=True,
-            secure_mode_enabled=bool(model_row.secure_mode_enabled),
+            secure_mode_enabled=secure_mode_enabled,
             reason=final_reason,
+            decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update},
+            decision_trace=decision_trace,
         )
 
         return SafeInferenceResponse(
             model_id=model_row.id,
             output=None,
             decision=final_decision,
+            security_score=security_score,
             prompt_risk_score=prompt_risk_score,
             output_risk_score=0.0,
             blocked=True,
             reason=final_reason,
             latency_ms=latency_ms,
-            secure_mode_enabled=bool(model_row.secure_mode_enabled),
+            secure_mode_enabled=secure_mode_enabled,
         )
 
     try:
@@ -214,7 +400,40 @@ async def safe_infer(
     except HTTPException as exc:
         latency_ms = (time.perf_counter() - started) * 1000.0
 
-        update_trust_score(username, RequestDecision.BLOCK)
+        trust_update = await reassess_user_trust_on_request(
+            db,
+            user_id=current_user.user_id,
+            username=username,
+            decision=RequestDecision.BLOCK,
+            prompt_risk_score=prompt_risk_score,
+            security_score=max(security_score, prompt_risk_score),
+            request_rate_score=request_rate_score,
+            secure_mode_enabled=secure_mode_enabled,
+            behavior_context=behavior_context,
+            reason_prefix="Upstream provider failure forced protective block.",
+            commit=False,
+        )
+        record_behavior_event(
+            username,
+            RequestDecision.BLOCK,
+            prompt_risk_score=prompt_risk_score,
+            security_score=max(security_score, prompt_risk_score),
+            request_rate_score=request_rate_score,
+            secure_mode_enabled=secure_mode_enabled,
+        )
+        await reassess_model_posture(
+            db,
+            model_row=model_row,
+            trigger="request_outcome",
+            request_context={
+                "decision": RequestDecision.BLOCK.value,
+                "request_rate_score": request_rate_score,
+                "prompt_risk_score": prompt_risk_score,
+                "security_score": max(security_score, prompt_risk_score),
+                "secure_mode_enabled": secure_mode_enabled,
+            },
+            commit=False,
+        )
 
         await log_request_db(
             db,
@@ -227,14 +446,54 @@ async def safe_infer(
             prompt_risk_score=prompt_risk_score,
             output_risk_score=0.0,
             blocked=True,
-            secure_mode_enabled=bool(model_row.secure_mode_enabled),
+            secure_mode_enabled=secure_mode_enabled,
             reason=f"Upstream error: {exc.detail}",
+            decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update},
+            decision_trace={
+                **decision_trace,
+                "final_decision": RequestDecision.BLOCK.value,
+                "error_type": "upstream_http_exception",
+                "error_detail": str(exc.detail),
+            },
         )
         raise
     except Exception as exc:
         latency_ms = (time.perf_counter() - started) * 1000.0
 
-        update_trust_score(username, RequestDecision.BLOCK)
+        trust_update = await reassess_user_trust_on_request(
+            db,
+            user_id=current_user.user_id,
+            username=username,
+            decision=RequestDecision.BLOCK,
+            prompt_risk_score=prompt_risk_score,
+            security_score=max(security_score, prompt_risk_score),
+            request_rate_score=request_rate_score,
+            secure_mode_enabled=secure_mode_enabled,
+            behavior_context=behavior_context,
+            reason_prefix="Inference runtime failure forced protective block.",
+            commit=False,
+        )
+        record_behavior_event(
+            username,
+            RequestDecision.BLOCK,
+            prompt_risk_score=prompt_risk_score,
+            security_score=max(security_score, prompt_risk_score),
+            request_rate_score=request_rate_score,
+            secure_mode_enabled=secure_mode_enabled,
+        )
+        await reassess_model_posture(
+            db,
+            model_row=model_row,
+            trigger="request_outcome",
+            request_context={
+                "decision": RequestDecision.BLOCK.value,
+                "request_rate_score": request_rate_score,
+                "prompt_risk_score": prompt_risk_score,
+                "security_score": max(security_score, prompt_risk_score),
+                "secure_mode_enabled": secure_mode_enabled,
+            },
+            commit=False,
+        )
 
         await log_request_db(
             db,
@@ -247,8 +506,15 @@ async def safe_infer(
             prompt_risk_score=prompt_risk_score,
             output_risk_score=0.0,
             blocked=True,
-            secure_mode_enabled=bool(model_row.secure_mode_enabled),
+            secure_mode_enabled=secure_mode_enabled,
             reason=f"Inference failed: {exc}",
+            decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update},
+            decision_trace={
+                **decision_trace,
+                "final_decision": RequestDecision.BLOCK.value,
+                "error_type": "inference_exception",
+                "error_detail": str(exc),
+            },
         )
         raise HTTPException(status_code=500, detail=f"Inference failed: {exc}")
 
@@ -260,7 +526,7 @@ async def safe_infer(
     final_output = output_text
     blocked = False
 
-    if bool(model_row.secure_mode_enabled):
+    if secure_mode_enabled:
         if output_action == "block":
             final_output = None
             blocked = True
@@ -280,7 +546,43 @@ async def safe_infer(
         min(1.0, output_risk_score / 100.0),
     )
 
-    update_trust_score(username, final_decision)
+    trust_update = await reassess_user_trust_on_request(
+        db,
+        user_id=current_user.user_id,
+        username=username,
+        decision=final_decision,
+        prompt_risk_score=prompt_risk_score,
+        security_score=combined_security_score,
+        request_rate_score=request_rate_score,
+        secure_mode_enabled=secure_mode_enabled,
+        behavior_context=behavior_context,
+        commit=False,
+    )
+    record_behavior_event(
+        username,
+        final_decision,
+        prompt_risk_score=prompt_risk_score,
+        security_score=combined_security_score,
+        request_rate_score=request_rate_score,
+        secure_mode_enabled=secure_mode_enabled,
+    )
+    await reassess_model_posture(
+        db,
+        model_row=model_row,
+        trigger="request_outcome",
+        request_context={
+            "decision": final_decision.value,
+            "request_rate_score": request_rate_score,
+            "prompt_risk_score": prompt_risk_score,
+            "security_score": combined_security_score,
+            "secure_mode_enabled": secure_mode_enabled,
+        },
+        commit=False,
+    )
+
+    decision_trace["final_decision"] = final_decision.value
+    decision_trace["output_guard_action"] = output_action
+    decision_trace["output_guard_findings"] = output_findings
 
     await log_request_db(
         db,
@@ -293,18 +595,21 @@ async def safe_infer(
         prompt_risk_score=prompt_risk_score,
         output_risk_score=output_risk_score,
         blocked=blocked,
-        secure_mode_enabled=bool(model_row.secure_mode_enabled),
+        secure_mode_enabled=secure_mode_enabled,
         reason=final_reason,
+        decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update},
+        decision_trace=decision_trace,
     )
 
     return SafeInferenceResponse(
         model_id=model_row.id,
         output=final_output,
         decision=final_decision,
+        security_score=combined_security_score,
         prompt_risk_score=prompt_risk_score,
         output_risk_score=output_risk_score,
         blocked=blocked,
         reason=final_reason,
         latency_ms=latency_ms,
-        secure_mode_enabled=bool(model_row.secure_mode_enabled),
+        secure_mode_enabled=secure_mode_enabled,
     )

@@ -35,12 +35,48 @@ def _score_source_reputation(provider_name: str) -> tuple[float, list[str]]:
     return 45.0, findings
 
 
+def _detect_license_status(
+    *,
+    source_url: str | None,
+    hf_model_id: str | None,
+    provider_name: str,
+) -> str:
+    """
+    Returns one of: present, missing, unknown.
+    """
+    source = (source_url or "").lower()
+    hf_id = (hf_model_id or "").lower()
+    provider = provider_name.lower()
+
+    explicit_license_markers = (
+        "license",
+        "licenses",
+        "apache-2.0",
+        "mit",
+        "bsd",
+        "cc-by",
+    )
+
+    if any(marker in source for marker in explicit_license_markers) or any(
+        marker in hf_id for marker in explicit_license_markers
+    ):
+        return "present"
+
+    if provider == "huggingface" and not hf_model_id:
+        return "missing"
+
+    # For managed providers and unknown external sources, treat as unknown
+    # unless explicit metadata says otherwise.
+    return "unknown"
+
+
 def _score_metadata_completeness(
     *,
     source_url: str | None,
     endpoint: str | None,
     hf_model_id: str | None,
     provider_name: str,
+    description: str | None,
 ) -> tuple[float, dict[str, Any], list[str]]:
     score = 10.0
     findings: list[str] = []
@@ -48,12 +84,18 @@ def _score_metadata_completeness(
     has_source_url = bool(source_url)
     has_endpoint = bool(endpoint)
     has_hf_model_id = bool(hf_model_id)
+    has_description = bool((description or "").strip())
 
-    has_license = False
-    has_description = True
     has_author = False
     has_model_card = False
     inferred_task = None
+
+    license_status = _detect_license_status(
+        source_url=source_url,
+        hf_model_id=hf_model_id,
+        provider_name=provider_name,
+    )
+    has_license = license_status == "present"
 
     if has_source_url:
         score += 20.0
@@ -93,6 +135,23 @@ def _score_metadata_completeness(
     if provider_name.lower() == "huggingface" and hf_model_id:
         has_author = "/" in hf_model_id
 
+    if has_description:
+        score += 10.0
+    else:
+        findings.append("Model description missing.")
+
+    if has_author:
+        score += 5.0
+    else:
+        findings.append("Model author/owner could not be inferred.")
+
+    if has_license:
+        score += 10.0
+    elif license_status == "missing":
+        findings.append("License information appears missing.")
+    else:
+        findings.append("License information could not be verified.")
+
     score = min(score, 100.0)
 
     metadata = {
@@ -100,6 +159,7 @@ def _score_metadata_completeness(
         "has_endpoint": has_endpoint,
         "has_hf_model_id": has_hf_model_id,
         "has_license": has_license,
+        "license_status": license_status,
         "has_description": has_description,
         "has_author": has_author,
         "has_model_card": has_model_card,
@@ -115,6 +175,7 @@ async def inspect_provider(
     source_url: str | None,
     hf_model_id: str | None,
     endpoint: str | None,
+    description: str | None = None,
 ) -> dict[str, Any]:
     normalized_provider = _normalize_provider(provider_name, source_url, endpoint)
 
@@ -124,6 +185,7 @@ async def inspect_provider(
         endpoint=endpoint,
         hf_model_id=hf_model_id,
         provider_name=normalized_provider,
+        description=description,
     )
 
     findings = []
@@ -138,6 +200,7 @@ async def inspect_provider(
         "has_endpoint": metadata["has_endpoint"],
         "has_hf_model_id": metadata["has_hf_model_id"],
         "has_license": metadata["has_license"],
+        "license_status": metadata["license_status"],
         "has_description": metadata["has_description"],
         "has_author": metadata["has_author"],
         "has_model_card": metadata["has_model_card"],

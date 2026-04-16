@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import Integer, Float, String, DateTime, ForeignKey, Boolean, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -37,6 +38,10 @@ class RequestLog(Base):
     secure_mode_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Explainability snapshots persisted at decision time.
+    decision_input_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    decision_trace: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     latency_ms: Mapped[float] = mapped_column(Float, nullable=False)
 
