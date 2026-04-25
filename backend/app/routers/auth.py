@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.core.security import create_access_token, get_current_user
+from app.core.rate_limiter import get_rate_profile
+from app.core.security import create_access_token, get_current_user, require_active_user
 from app.schemas import ErrorResponse, MessageResponse, TokenData, TokenResponse, UserCreate, UserResponse
 from app.services.user_service import (
     authenticate_user,
@@ -14,6 +15,7 @@ from app.services.user_service import (
     get_user_by_email,
     get_user_by_username,
 )
+from app.services.reassessment_service import get_trust_profile_persistent
 
 settings = get_settings()
 router = APIRouter()
@@ -111,6 +113,37 @@ async def login(
 )
 async def get_me(current_user: TokenData = Depends(get_current_user)):
     return current_user
+
+
+@router.get(
+    "/me/profile",
+    responses={401: {"model": ErrorResponse, "description": "Unauthorized"}},
+)
+async def get_my_profile(
+    current_user: TokenData = Depends(require_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    username = current_user.username
+    if not username:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    trust_profile = await get_trust_profile_persistent(db, username)
+    rate_profile = get_rate_profile(username)
+
+    return {
+        "user": current_user,
+        "trust": trust_profile,
+        "rate": rate_profile,
+        "security_posture": {
+            "status": "penalized" if rate_profile.get("penalty_active") else trust_profile.get("trust_level", "unknown"),
+            "can_use_models": not bool(rate_profile.get("penalty_active")),
+            "cooldown_remaining_seconds": rate_profile.get("cooldown_remaining_seconds", 0),
+        },
+    }
 
 
 # ─── Logout ───────────────────────────────────────────────────────────────────

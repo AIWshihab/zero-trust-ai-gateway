@@ -1,12 +1,16 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
-from app.core.database import init_db
-from app.routers import auth, models, detect, assessment, protection, usage, reporting
+from app.core.database import AsyncSessionLocal, init_db
+from app.routers import auth, models, detect, assessment, protection, usage, reporting, security
 from app.core import monitoring
+from app.services.security_catalog import seed_default_security_controls
+from app.ui.control_plane import CONTROL_PLANE_HTML
+from app.ui.dashboard import DASHBOARD_HTML
 
 settings = get_settings()
 
@@ -14,6 +18,8 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    async with AsyncSessionLocal() as db:
+        await seed_default_security_controls(db)
     print(f"🚀 Starting {settings.APP_NAME}")
     yield
     print("🛑 Shutting down gateway")
@@ -79,6 +85,12 @@ app.include_router(
 )
 
 app.include_router(
+    security.router,
+    prefix=f"{settings.API_V1_PREFIX}/security",
+    tags=["AI Security Control Plane"],
+)
+
+app.include_router(
     monitoring.router,
     prefix=f"{settings.API_V1_PREFIX}/monitoring",
     tags=["Monitoring"],
@@ -98,6 +110,17 @@ async def health_check():
 async def root():
     return {
         "message": f"Welcome to {settings.APP_NAME}",
+        "dashboard": "/dashboard",
         "docs": "/docs",
         "health": "/health",
     }
+
+
+@app.get("/dashboard", response_class=HTMLResponse, tags=["Dashboard"])
+async def dashboard():
+    return DASHBOARD_HTML
+
+
+@app.get("/control-plane", response_class=HTMLResponse, tags=["Dashboard"])
+async def control_plane_page():
+    return CONTROL_PLANE_HTML

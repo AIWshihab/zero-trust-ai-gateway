@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.enums import ModelType, RiskLevel, ScanStatus, SensitivityLevel
 
@@ -23,7 +23,13 @@ class ModelBase(BaseModel):
 
 
 class ModelCreate(ModelBase):
-    pass
+    @model_validator(mode="after")
+    def validate_provider_requirements(self):
+        if self.model_type == ModelType.HUGGINGFACE and not (self.hf_model_id or self.source_url):
+            raise ValueError("Hugging Face models require hf_model_id or source_url for safe onboarding")
+        if self.model_type in {ModelType.LOCAL, ModelType.CUSTOM_API} and not self.endpoint:
+            raise ValueError(f"{self.model_type.value} models require endpoint")
+        return self
 
 
 class ModelOut(ModelBase):

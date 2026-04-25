@@ -10,7 +10,9 @@ from app.core.policy_engine import evaluate_request
 from app.core.rate_limiter import (
     record_request,
     get_request_rate_score,
+    get_penalty_profile,
     is_rate_limited,
+    record_abuse_outcome,
 )
 from app.core.security import require_active_user, hash_prompt
 from app.core.trust_score import (
@@ -34,6 +36,7 @@ from app.services.reassessment_service import (
     reassess_model_posture,
     reassess_user_trust_on_request,
 )
+from app.services.security_catalog import list_detection_rules
 
 router = APIRouter()
 
@@ -170,12 +173,106 @@ async def safe_infer(
         commit=False,
     )
 
+    penalty_profile = get_penalty_profile(username)
+    if penalty_profile.get("penalty_active"):
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        decision = RequestDecision.BLOCK
+        remaining = int(penalty_profile.get("cooldown_remaining_seconds") or 0)
+        reason = f"Temporary abuse penalty active. Retry after {remaining} second(s)."
+        behavior_context = get_behavior_context(username)
+
+        trust_update = await reassess_user_trust_on_request(
+            db,
+            user_id=current_user.user_id,
+            username=username,
+            decision=decision,
+            prompt_risk_score=1.0,
+            security_score=1.0,
+            request_rate_score=get_request_rate_score(username),
+            secure_mode_enabled=secure_mode_enabled,
+            behavior_context=behavior_context,
+            reason_prefix="Temporary abuse penalty blocked request.",
+            commit=False,
+        )
+        updated_behavior_context = record_behavior_event(
+            username,
+            decision,
+            prompt_risk_score=1.0,
+            security_score=1.0,
+            request_rate_score=get_request_rate_score(username),
+            secure_mode_enabled=secure_mode_enabled,
+        )
+        await reassess_model_posture(
+            db,
+            model_row=model_row,
+            trigger="request_outcome",
+            request_context={
+                "decision": decision.value,
+                "request_rate_score": get_request_rate_score(username),
+                "prompt_risk_score": 1.0,
+                "security_score": 1.0,
+                "secure_mode_enabled": secure_mode_enabled,
+                "penalty_profile": penalty_profile,
+            },
+            commit=False,
+        )
+
+        await log_request_db(
+            db,
+            user_id=current_user.user_id,
+            model_id=model_row.id,
+            prompt_hash=hash_prompt(payload.prompt),
+            security_score=1.0,
+            decision=decision,
+            latency_ms=latency_ms,
+            prompt_risk_score=1.0,
+            output_risk_score=0.0,
+            blocked=True,
+            secure_mode_enabled=secure_mode_enabled,
+            reason=reason,
+            decision_input_snapshot={
+                "secure_mode_enabled": secure_mode_enabled,
+                "behavior_context_before": behavior_context,
+                "behavior_context_after": updated_behavior_context,
+                "trust_update": trust_update,
+                "penalty_profile": penalty_profile,
+            },
+            decision_trace={
+                "policy_decision": "block",
+                "guard_decision": "not_evaluated",
+                "final_decision": "block",
+                "adaptive_reasons": ["temporary abuse penalty active"],
+                "secure_mode_enabled": secure_mode_enabled,
+            },
+        )
+
+        return SafeInferenceResponse(
+            model_id=model_row.id,
+            output=None,
+            decision=decision,
+            security_score=1.0,
+            prompt_risk_score=1.0,
+            output_risk_score=0.0,
+            blocked=True,
+            reason=reason,
+            latency_ms=latency_ms,
+            secure_mode_enabled=secure_mode_enabled,
+            enforcement_profile=penalty_profile,
+        )
+
     # Hard rate limit fast-path
     if is_rate_limited(username):
         latency_ms = (time.perf_counter() - started) * 1000.0
         decision = RequestDecision.BLOCK
         reason = "Blocked by hard rate limit."
         behavior_context = get_behavior_context(username)
+        penalty_profile = record_abuse_outcome(
+            username,
+            decision=decision.value,
+            prompt_risk_score=0.0,
+            security_score=1.0,
+            reason=reason,
+        )
 
         trust_update = await reassess_user_trust_on_request(
             db,
@@ -231,6 +328,7 @@ async def safe_infer(
                 "behavior_context_before": behavior_context,
                 "behavior_context_after": updated_behavior_context,
                 "trust_update": trust_update,
+                "penalty_profile": penalty_profile,
             },
             decision_trace={
                 "policy_decision": "block",
@@ -252,6 +350,7 @@ async def safe_infer(
             reason=reason,
             latency_ms=latency_ms,
             secure_mode_enabled=secure_mode_enabled,
+            enforcement_profile=penalty_profile,
         )
 
     # Record request for sliding-window rate score
@@ -269,6 +368,7 @@ async def safe_infer(
         user_trust_score=max(0.0, 1.0 - user_trust_penalty),
         model_sensitivity=model_sensitivity,
         provider=model_row.provider_name,
+        dynamic_rules=await list_detection_rules(db, target="prompt"),
     )
 
     prompt_risk_score = float(guard_result.prompt_risk_score)
@@ -326,6 +426,13 @@ async def safe_infer(
 
     if final_decision == RequestDecision.BLOCK:
         latency_ms = (time.perf_counter() - started) * 1000.0
+        penalty_profile = record_abuse_outcome(
+            username,
+            decision=final_decision.value,
+            prompt_risk_score=prompt_risk_score,
+            security_score=security_score,
+            reason=final_reason,
+        )
 
         trust_update = await reassess_user_trust_on_request(
             db,
@@ -357,6 +464,7 @@ async def safe_infer(
                 "prompt_risk_score": prompt_risk_score,
                 "security_score": security_score,
                 "secure_mode_enabled": secure_mode_enabled,
+                "penalty_profile": penalty_profile,
             },
             commit=False,
         )
@@ -374,7 +482,7 @@ async def safe_infer(
             blocked=True,
             secure_mode_enabled=secure_mode_enabled,
             reason=final_reason,
-            decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update},
+            decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update, "penalty_profile": penalty_profile},
             decision_trace=decision_trace,
         )
 
@@ -389,6 +497,7 @@ async def safe_infer(
             reason=final_reason,
             latency_ms=latency_ms,
             secure_mode_enabled=secure_mode_enabled,
+            enforcement_profile=penalty_profile,
         )
 
     try:
@@ -518,7 +627,10 @@ async def safe_infer(
         )
         raise HTTPException(status_code=500, detail=f"Inference failed: {exc}")
 
-    output_guard_result = inspect_output(output_text)
+    output_guard_result = inspect_output(
+        output_text,
+        dynamic_rules=await list_detection_rules(db, target="output"),
+    )
     output_action = output_guard_result.get("action", "allow")
     output_risk_score = float(output_guard_result.get("risk_score", 0.0))
     output_findings = output_guard_result.get("findings", [])
@@ -533,7 +645,7 @@ async def safe_infer(
             final_decision = RequestDecision.BLOCK
             final_reason = "Blocked by output guard."
         elif output_action == "redact":
-            final_output = "[REDACTED BY OUTPUT GUARD]"
+            final_output = output_guard_result.get("redacted_text") or "[REDACTED BY OUTPUT GUARD]"
             final_reason = "Response redacted by output guard."
 
     if output_findings:
@@ -544,6 +656,13 @@ async def safe_infer(
         security_score,
         prompt_risk_score,
         min(1.0, output_risk_score / 100.0),
+    )
+    penalty_profile = record_abuse_outcome(
+        username,
+        decision=final_decision.value,
+        prompt_risk_score=prompt_risk_score,
+        security_score=combined_security_score,
+        reason=final_reason,
     )
 
     trust_update = await reassess_user_trust_on_request(
@@ -576,6 +695,7 @@ async def safe_infer(
             "prompt_risk_score": prompt_risk_score,
             "security_score": combined_security_score,
             "secure_mode_enabled": secure_mode_enabled,
+            "penalty_profile": penalty_profile,
         },
         commit=False,
     )
@@ -597,7 +717,7 @@ async def safe_infer(
         blocked=blocked,
         secure_mode_enabled=secure_mode_enabled,
         reason=final_reason,
-        decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update},
+        decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update, "penalty_profile": penalty_profile},
         decision_trace=decision_trace,
     )
 
@@ -612,4 +732,5 @@ async def safe_infer(
         reason=final_reason,
         latency_ms=latency_ms,
         secure_mode_enabled=secure_mode_enabled,
+        enforcement_profile=penalty_profile,
     )

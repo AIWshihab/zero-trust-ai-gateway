@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     WEIGHT_USER_TRUST_PENALTY: float = 0.10
 
     # Database — asyncpg for runtime, override in .env
-    DATABASE_URL: str = os.getenv("DATABASE_URL")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./dev.db")
 
     # OpenAI (optional)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")

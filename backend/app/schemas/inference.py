@@ -36,3 +36,4 @@ class SafeInferenceResponse(BaseModel):
     reason: Optional[str] = None
     latency_ms: Optional[float] = Field(None, ge=0)
     secure_mode_enabled: bool = False
+    enforcement_profile: dict[str, Any] = Field(default_factory=dict)

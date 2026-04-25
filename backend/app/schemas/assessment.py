@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.enums import ModelType, ScanStatus
 
@@ -14,6 +14,14 @@ class ModelScanRequest(BaseModel):
     hf_model_id: Optional[str] = Field(None, max_length=255)
     endpoint: Optional[str] = Field(None, max_length=500)
     description: Optional[str] = Field(None, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_scan_target(self):
+        if self.model_type == ModelType.HUGGINGFACE and not (self.hf_model_id or self.source_url):
+            raise ValueError("Hugging Face scans require hf_model_id or source_url")
+        if self.model_type in {ModelType.LOCAL, ModelType.CUSTOM_API} and not self.endpoint:
+            raise ValueError(f"{self.model_type.value} scans require endpoint")
+        return self
 
 
 class TrustBreakdownSchema(BaseModel):

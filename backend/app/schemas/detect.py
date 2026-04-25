@@ -17,3 +17,4 @@ class DetectResponse(BaseModel):
 
     decision: RequestDecision
     reason: str
+    enforcement_profile: dict = Field(default_factory=dict)

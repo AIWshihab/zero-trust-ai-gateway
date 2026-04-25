@@ -51,7 +51,7 @@ async def _call_openai(model, prompt: str, parameters: dict) -> str:
     }
 
     payload = {
-        "model": "gpt-3.5-turbo",
+        "model": parameters.get("model") or getattr(model, "hf_model_id", None) or "gpt-4o-mini",
         "messages": [{"role": "user", "content": prompt}],
         "max_tokens": parameters.get("max_tokens", 512),
         "temperature": parameters.get("temperature", 0.7),
@@ -71,7 +71,13 @@ async def _call_openai(model, prompt: str, parameters: dict) -> str:
         )
 
     data = response.json()
-    return data["choices"][0]["message"]["content"]
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="OpenAI API response did not include chat completion content",
+        )
 
 
 async def _call_huggingface_chat(model, prompt: str, parameters: dict) -> str:
@@ -82,6 +88,11 @@ async def _call_huggingface_chat(model, prompt: str, parameters: dict) -> str:
         )
 
     model_name = (getattr(model, "hf_model_id", None) or "").strip()
+    if not model_name:
+        source_url = (getattr(model, "source_url", None) or "").strip()
+        if "huggingface.co/" in source_url:
+            model_name = source_url.split("huggingface.co/", 1)[1].strip("/")
+            model_name = model_name.split("/tree/", 1)[0].split("/blob/", 1)[0]
     if not model_name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -114,7 +125,13 @@ async def _call_huggingface_chat(model, prompt: str, parameters: dict) -> str:
         )
 
     data = response.json()
-    return data["choices"][0]["message"]["content"]
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="HuggingFace router response did not include chat completion content",
+        )
 
 
 async def _call_local(model, prompt: str, parameters: dict) -> str:
@@ -169,4 +186,17 @@ async def _call_custom_api(model, prompt: str, parameters: dict) -> str:
         )
 
     data = response.json()
-    return data.get("output") or data.get("result") or str(data)
+    if isinstance(data, dict):
+        direct = data.get("output") or data.get("result") or data.get("response") or data.get("text")
+        if direct:
+            return str(direct)
+        choices = data.get("choices")
+        if isinstance(choices, list) and choices:
+            first = choices[0]
+            if isinstance(first, dict):
+                message = first.get("message")
+                if isinstance(message, dict) and message.get("content"):
+                    return str(message["content"])
+                if first.get("text"):
+                    return str(first["text"])
+    return str(data)

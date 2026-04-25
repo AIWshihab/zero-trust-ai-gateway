@@ -98,6 +98,10 @@ def _normalize_rate_profile(raw: dict) -> dict:
         "limit": _coerce_int(limit, 1),
         "rate_score": _safe_float(raw.get("rate_score"), 0.0),
         "is_rate_limited": bool(raw.get("is_rate_limited", False)),
+        "abuse_strikes": _coerce_int(raw.get("abuse_strikes"), 0),
+        "penalty_active": bool(raw.get("penalty_active", False)),
+        "cooldown_remaining_seconds": _coerce_int(raw.get("cooldown_remaining_seconds"), 0),
+        "last_penalty_reason": raw.get("last_penalty_reason"),
     }
 
 

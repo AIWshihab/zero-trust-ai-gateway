@@ -40,8 +40,9 @@ async def init_db():
     from app.models.request_log import RequestLog
     from app.models.user_trust_event import UserTrustEvent
     from app.models.model_posture_event import ModelPostureEvent
+    from app.models.security import SecurityControl, DetectionRule
 
-    _ = (User, Model, RequestLog, UserTrustEvent, ModelPostureEvent)
+    _ = (User, Model, RequestLog, UserTrustEvent, ModelPostureEvent, SecurityControl, DetectionRule)
 
     if settings.AUTO_INIT_SCHEMA:
         async with engine.begin() as conn:

@@ -14,12 +14,23 @@ from app.schemas.monitoring import (
 )
 from app.schemas.protection import ProtectionConfig, ProtectionScoreResponse
 from app.schemas.reporting import ComparisonReportResponse
+from app.schemas.security import (
+    DetectionRuleCreate,
+    DetectionRuleOut,
+    DetectionRuleUpdate,
+    SecurityControlCreate,
+    SecurityControlOut,
+    SecurityControlUpdate,
+)
 from app.schemas.user import UserCreate, UserResponse
 
 __all__ = [
     "ComparisonReportResponse",
     "DetectRequest",
     "DetectResponse",
+    "DetectionRuleCreate",
+    "DetectionRuleOut",
+    "DetectionRuleUpdate",
     "ErrorDetail",
     "ErrorResponse",
     "InferenceRequest",
@@ -41,6 +52,9 @@ __all__ = [
     "RiskLevel",
     "ScanStatus",
     "SafeInferenceResponse",
+    "SecurityControlCreate",
+    "SecurityControlOut",
+    "SecurityControlUpdate",
     "SensitivityLevel",
     "TokenData",
     "TokenRequest",

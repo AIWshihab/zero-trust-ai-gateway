@@ -6,7 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.policy_engine import evaluate_request
-from app.core.rate_limiter import get_request_rate_score, record_request
+from app.core.rate_limiter import (
+    get_penalty_profile,
+    get_request_rate_score,
+    record_abuse_outcome,
+    record_request,
+)
 from app.core.security import hash_prompt, require_active_user
 from app.core.trust_score import (
     get_behavior_context,
@@ -37,6 +42,7 @@ from app.services.reassessment_service import (
     reassess_model_posture,
     reassess_user_trust_on_request,
 )
+from app.services.security_catalog import list_detection_rules
 
 router = APIRouter()
 
@@ -150,6 +156,17 @@ async def detect_prompt(
         commit=False,
     )
 
+    penalty_profile = get_penalty_profile(current_user.username)
+    if penalty_profile.get("penalty_active"):
+        remaining = int(penalty_profile.get("cooldown_remaining_seconds") or 0)
+        return DetectResponse(
+            prompt_risk_score=1.0,
+            flags=["temporary_abuse_penalty"],
+            decision=RequestDecision.BLOCK,
+            reason=f"Temporary abuse penalty active. Retry after {remaining} second(s).",
+            enforcement_profile=penalty_profile,
+        )
+
     request_rate_score = get_request_rate_score(current_user.username)
     user_trust_penalty = await get_user_trust_penalty_persistent(
         db,
@@ -171,6 +188,7 @@ async def detect_prompt(
         user_trust_score=user_trust_score,
         model_sensitivity=model_sensitivity_label,
         provider=model.provider_name,
+        dynamic_rules=await list_detection_rules(db, target="prompt"),
     )
 
     model_risk_score = (
@@ -208,6 +226,14 @@ async def detect_prompt(
     else:
         policy_reason = f"{policy_reason} | Guard: {prompt_result.reason}"
 
+    penalty_profile = record_abuse_outcome(
+        current_user.username,
+        decision=policy_decision.value,
+        prompt_risk_score=prompt_result.prompt_risk_score,
+        security_score=float(policy.get("security_score", 0.0)),
+        reason=policy_reason,
+    )
+
     # Track risk behavior from pre-screening activity for adaptive secure mode.
     trust_update = await reassess_user_trust_on_request(
         db,
@@ -241,6 +267,7 @@ async def detect_prompt(
             "security_score": float(policy.get("security_score", 0.0)),
             "secure_mode_enabled": bool(model.secure_mode_enabled),
             "trust_update": trust_update,
+            "penalty_profile": penalty_profile,
         },
         commit=True,
     )
@@ -250,6 +277,7 @@ async def detect_prompt(
         flags=prompt_result.flags,
         decision=policy_decision,
         reason=policy_reason,
+        enforcement_profile=penalty_profile,
     )
 
 
@@ -405,6 +433,7 @@ async def infer(
         user_trust_score=user_trust_score,
         model_sensitivity=model_sensitivity_label,
         provider=model.provider_name,
+        dynamic_rules=await list_detection_rules(db, target="prompt"),
     )
 
     policy = evaluate_request(
