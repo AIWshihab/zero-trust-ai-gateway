@@ -46,8 +46,11 @@ async def get_model(db: AsyncSession, model_id: int) -> Optional[ModelOut]:
     return ModelOut.model_validate(db_model)
 
 
-async def get_all_models(db: AsyncSession) -> List[ModelOut]:
-    result = await db.execute(select(Model))
+async def get_all_models(db: AsyncSession, include_inactive: bool = False) -> List[ModelOut]:
+    query = select(Model)
+    if not include_inactive:
+        query = query.where(Model.is_active.is_(True))
+    result = await db.execute(query.order_by(Model.created_at.desc(), Model.id.desc()))
     models = result.scalars().all()
     return [ModelOut.model_validate(m) for m in models]
 

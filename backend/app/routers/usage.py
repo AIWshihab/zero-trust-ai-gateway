@@ -28,6 +28,8 @@ from app.schemas import (
     TokenData,
 )
 from app.services.model_readiness import ensure_model_ready
+from app.services.model_runtime import ensure_model_runtime_ready
+from app.services.chat_errors import build_chat_error, model_setup_error
 from app.services.db_logger import log_request_db
 from app.services.model_router import route_to_model
 from app.services.prompt_guard import evaluate_prompt_guard, GuardDecision
@@ -37,6 +39,10 @@ from app.services.reassessment_service import (
     reassess_user_trust_on_request,
 )
 from app.services.security_catalog import list_detection_rules
+from app.services.threat_intelligence import (
+    get_user_attack_sequence_summary,
+    update_attack_sequence,
+)
 
 router = APIRouter()
 
@@ -86,6 +92,61 @@ def _model_base_risk_score(model_row: Model) -> float | None:
         return None
 
 
+def _model_secured_risk_score(model_row: Model) -> float | None:
+    persisted = _safe_float(model_row.secured_risk_score)
+    if persisted is not None:
+        return max(0.0, min(100.0, persisted))
+    return None
+
+
+def _chat_detail_from_http_exception(exc: HTTPException) -> dict:
+    if isinstance(exc.detail, dict) and {"title", "reason", "explanation", "suggested_fix"} <= set(exc.detail):
+        return exc.detail
+
+    raw = str(exc.detail or "")
+    lower = raw.lower()
+    if "hf_token" in lower:
+        return model_setup_error(
+            code="missing_token_config",
+            title="Missing Hugging Face configuration",
+            reason="HF_TOKEN is not configured.",
+            explanation="The gateway screened the prompt, but it cannot call the selected Hugging Face model until the server has a Hugging Face token.",
+            suggested_fix="Ask an admin to set HF_TOKEN in backend/.env and restart the backend.",
+            action_required="admin",
+            metadata={"provider": "huggingface"},
+        )
+    if "openai api key" in lower or "openai_api_key" in lower:
+        return model_setup_error(
+            code="missing_token_config",
+            title="Missing OpenAI configuration",
+            reason="OPENAI_API_KEY is not configured.",
+            explanation="The gateway screened the prompt, but it cannot call OpenAI until the server has an API key.",
+            suggested_fix="Ask an admin to set OPENAI_API_KEY in backend/.env and restart the backend.",
+            action_required="admin",
+            metadata={"provider": "openai"},
+        )
+    if "local model" in lower or "custom api" in lower or "endpoint" in lower:
+        return model_setup_error(
+            code="local_endpoint_unavailable",
+            title="Local endpoint unavailable",
+            reason=raw or "The configured model endpoint is not reachable.",
+            explanation="The gateway screened the prompt, but the selected local/custom model endpoint did not return a usable response.",
+            suggested_fix="Ask an admin to start the model server and verify the endpoint URL.",
+            action_required="admin",
+            metadata={"upstream_status": exc.status_code},
+        )
+    return build_chat_error(
+        code="provider_runtime_error",
+        title="Provider runtime error",
+        reason=raw or "The model provider returned an error.",
+        explanation="The gateway screened the prompt, but the selected model provider could not complete inference.",
+        suggested_fix="Try again later or ask an admin to check the model provider logs.",
+        action_required="admin",
+        status="model_not_callable",
+        metadata={"upstream_status": exc.status_code},
+    )
+
+
 def _decision_snapshot(
     *,
     policy_result: dict,
@@ -96,6 +157,7 @@ def _decision_snapshot(
     request_rate_score: float,
     policy_decision: RequestDecision,
     final_decision: RequestDecision,
+    attack_sequence_summary: dict | None = None,
 ) -> tuple[dict, dict]:
     guard_decision = guard_result.decision.value if hasattr(guard_result.decision, "value") else str(guard_result.decision)
 
@@ -105,6 +167,9 @@ def _decision_snapshot(
         "policy_inputs": policy_result.get("inputs", {}),
         "effective_thresholds": policy_result.get("effective_thresholds", {}),
         "adaptive_reasons": policy_result.get("adaptive_reasons", []),
+        "effective_risk": policy_result.get("effective_risk"),
+        "effective_risk_model": policy_result.get("effective_risk_model", {}),
+        "effective_risk_explanation": policy_result.get("effective_risk_explanation"),
         "behavior_context": behavior_context,
         "guard": {
             "decision": guard_decision,
@@ -112,13 +177,26 @@ def _decision_snapshot(
             "flags": list(getattr(guard_result, "flags", [])),
         },
         "request_rate_score": round(float(request_rate_score), 4),
+        "attack_sequence_summary": attack_sequence_summary or {},
+        "cross_model_abuse": {
+            "score": (attack_sequence_summary or {}).get("cross_model_abuse_score", 0.0),
+            "models": (attack_sequence_summary or {}).get("cross_model_models", 0),
+            "risky_events": (attack_sequence_summary or {}).get("cross_model_risky_events", 0),
+        },
     }
 
     decision_trace = {
         "policy_decision": policy_decision.value,
         "guard_decision": guard_decision,
         "final_decision": final_decision.value,
+        "inputs": policy_result.get("inputs", {}),
+        "effective_thresholds": policy_result.get("effective_thresholds", {}),
+        "effective_risk": policy_result.get("effective_risk"),
+        "effective_risk_model": policy_result.get("effective_risk_model", {}),
+        "effective_risk_explanation": policy_result.get("effective_risk_explanation"),
         "adaptive_reasons": policy_result.get("adaptive_reasons", []),
+        "adaptive_threshold_reasons": policy_result.get("adaptive_reasons", []),
+        "attack_sequence_summary": attack_sequence_summary or {},
         "secure_mode_enabled": bool(secure_mode_enabled),
     }
 
@@ -150,8 +228,18 @@ async def safe_infer(
     if not model_row:
         raise HTTPException(status_code=404, detail="Model not found")
     if not bool(model_row.is_active):
-        raise HTTPException(status_code=403, detail="Model is inactive")
-    ensure_model_ready(model_row, action="inference")
+        raise HTTPException(
+            status_code=403,
+            detail=model_setup_error(
+                code="disabled_inactive",
+                title="Model disabled",
+                reason="This model is inactive in the registry.",
+                explanation="The gateway will not send chat traffic to disabled models.",
+                suggested_fix="Ask an admin to reactivate this model or choose another one.",
+                action_required="admin",
+                metadata={"model_id": model_row.id},
+            ),
+        )
 
     model_sensitivity = (
         model_row.sensitivity_level.value
@@ -214,6 +302,20 @@ async def safe_infer(
                 "secure_mode_enabled": secure_mode_enabled,
                 "penalty_profile": penalty_profile,
             },
+            commit=False,
+        )
+        await update_attack_sequence(
+            db,
+            user_id=current_user.user_id,
+            model_id=model_row.id,
+            event_type="cooldown_block",
+            decision=decision,
+            risk_score=1.0,
+            security_score=1.0,
+            reason=reason,
+            prompt_hash=hash_prompt(payload.prompt),
+            cooldown_active=True,
+            metadata={"penalty_profile": penalty_profile},
             commit=False,
         )
 
@@ -308,6 +410,19 @@ async def safe_infer(
             },
             commit=False,
         )
+        await update_attack_sequence(
+            db,
+            user_id=current_user.user_id,
+            model_id=model_row.id,
+            event_type="hard_rate_limit",
+            decision=decision,
+            risk_score=0.0,
+            security_score=1.0,
+            reason=reason,
+            prompt_hash=hash_prompt(payload.prompt),
+            metadata={"penalty_profile": penalty_profile},
+            commit=False,
+        )
 
         await log_request_db(
             db,
@@ -362,6 +477,7 @@ async def safe_infer(
         username=username,
     )
     behavior_context = get_behavior_context(username)
+    attack_sequence_summary = await get_user_attack_sequence_summary(db, user_id=current_user.user_id)
 
     guard_result = await evaluate_prompt_guard(
         payload.prompt,
@@ -374,6 +490,7 @@ async def safe_infer(
     prompt_risk_score = float(guard_result.prompt_risk_score)
 
     model_base_risk_score = _model_base_risk_score(model_row)
+    secured_model_risk_score = _model_secured_risk_score(model_row)
     model_risk_score = 0.5
     if model_base_risk_score is not None:
         model_risk_score = max(0.0, min(1.0, model_base_risk_score / 100.0))
@@ -391,6 +508,10 @@ async def safe_infer(
         recent_blocks=behavior_context.get("recent_blocks", 0),
         recent_challenges=behavior_context.get("recent_challenges", 0),
         model_base_risk_score=model_base_risk_score,
+        secured_model_risk_score=secured_model_risk_score,
+        attack_sequence_severity=attack_sequence_summary.get("sequence_severity", 0.0),
+        repeated_pattern_count=attack_sequence_summary.get("repeated_pattern_count", 0),
+        cross_model_abuse_score=attack_sequence_summary.get("cross_model_abuse_score", 0.0),
     )
 
     policy_decision = policy_result.get("decision", RequestDecision.ALLOW)
@@ -422,6 +543,7 @@ async def safe_infer(
         request_rate_score=request_rate_score,
         policy_decision=policy_decision,
         final_decision=final_decision,
+        attack_sequence_summary=attack_sequence_summary,
     )
 
     if final_decision == RequestDecision.BLOCK:
@@ -468,6 +590,20 @@ async def safe_infer(
             },
             commit=False,
         )
+        await update_attack_sequence(
+            db,
+            user_id=current_user.user_id,
+            model_id=model_row.id,
+            event_type="safe_inference_block",
+            decision=final_decision,
+            risk_score=prompt_risk_score,
+            security_score=security_score,
+            reason=final_reason,
+            flags=list(getattr(guard_result, "flags", [])),
+            prompt_hash=hash_prompt(payload.prompt),
+            metadata={"policy_adaptive_reasons": policy_result.get("adaptive_reasons", [])},
+            commit=False,
+        )
 
         await log_request_db(
             db,
@@ -501,6 +637,45 @@ async def safe_infer(
         )
 
     try:
+        ensure_model_ready(model_row, action="inference")
+        ensure_model_runtime_ready(model_row)
+    except HTTPException as exc:
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        detail = _chat_detail_from_http_exception(exc)
+        detail = {
+            **detail,
+            "policy_decision": final_decision.value,
+            "prompt_risk_score": prompt_risk_score,
+            "security_score": security_score,
+            "secure_mode_enabled": secure_mode_enabled,
+        }
+        await log_request_db(
+            db,
+            user_id=current_user.user_id,
+            model_id=model_row.id,
+            prompt_hash=hash_prompt(payload.prompt),
+            security_score=security_score,
+            decision=final_decision,
+            latency_ms=latency_ms,
+            prompt_risk_score=prompt_risk_score,
+            output_risk_score=0.0,
+            blocked=False,
+            secure_mode_enabled=secure_mode_enabled,
+            reason=f"Model not callable after pre-screen: {detail.get('title')}. {detail.get('reason')}",
+            decision_input_snapshot={
+                **decision_input_snapshot,
+                "model_readiness_error": detail,
+                "inference_attempted": False,
+            },
+            decision_trace={
+                **decision_trace,
+                "model_readiness_error": detail,
+                "inference_attempted": False,
+            },
+        )
+        raise HTTPException(status_code=exc.status_code, detail=detail)
+
+    try:
         output_text = await route_to_model(
             model=model_row,
             prompt=payload.prompt,
@@ -508,100 +683,55 @@ async def safe_infer(
         )
     except HTTPException as exc:
         latency_ms = (time.perf_counter() - started) * 1000.0
-
-        trust_update = await reassess_user_trust_on_request(
-            db,
-            user_id=current_user.user_id,
-            username=username,
-            decision=RequestDecision.BLOCK,
-            prompt_risk_score=prompt_risk_score,
-            security_score=max(security_score, prompt_risk_score),
-            request_rate_score=request_rate_score,
-            secure_mode_enabled=secure_mode_enabled,
-            behavior_context=behavior_context,
-            reason_prefix="Upstream provider failure forced protective block.",
-            commit=False,
-        )
-        record_behavior_event(
-            username,
-            RequestDecision.BLOCK,
-            prompt_risk_score=prompt_risk_score,
-            security_score=max(security_score, prompt_risk_score),
-            request_rate_score=request_rate_score,
-            secure_mode_enabled=secure_mode_enabled,
-        )
-        await reassess_model_posture(
-            db,
-            model_row=model_row,
-            trigger="request_outcome",
-            request_context={
-                "decision": RequestDecision.BLOCK.value,
-                "request_rate_score": request_rate_score,
-                "prompt_risk_score": prompt_risk_score,
-                "security_score": max(security_score, prompt_risk_score),
-                "secure_mode_enabled": secure_mode_enabled,
-            },
-            commit=False,
-        )
+        detail = {
+            **_chat_detail_from_http_exception(exc),
+            "policy_decision": final_decision.value,
+            "prompt_risk_score": prompt_risk_score,
+            "security_score": security_score,
+            "secure_mode_enabled": secure_mode_enabled,
+        }
 
         await log_request_db(
             db,
             user_id=current_user.user_id,
             model_id=model_row.id,
             prompt_hash=hash_prompt(payload.prompt),
-            security_score=max(security_score, prompt_risk_score),
-            decision=RequestDecision.BLOCK,
+            security_score=security_score,
+            decision=final_decision,
             latency_ms=latency_ms,
             prompt_risk_score=prompt_risk_score,
             output_risk_score=0.0,
-            blocked=True,
+            blocked=False,
             secure_mode_enabled=secure_mode_enabled,
-            reason=f"Upstream error: {exc.detail}",
-            decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update},
+            reason=f"Provider not callable after pre-screen: {detail.get('title')}. {detail.get('reason')}",
+            decision_input_snapshot={
+                **decision_input_snapshot,
+                "provider_runtime_error": detail,
+                "inference_attempted": True,
+            },
             decision_trace={
                 **decision_trace,
-                "final_decision": RequestDecision.BLOCK.value,
-                "error_type": "upstream_http_exception",
-                "error_detail": str(exc.detail),
+                "provider_runtime_error": detail,
+                "inference_attempted": True,
             },
         )
-        raise
+        raise HTTPException(status_code=exc.status_code, detail=detail)
     except Exception as exc:
         latency_ms = (time.perf_counter() - started) * 1000.0
-
-        trust_update = await reassess_user_trust_on_request(
-            db,
-            user_id=current_user.user_id,
-            username=username,
-            decision=RequestDecision.BLOCK,
-            prompt_risk_score=prompt_risk_score,
-            security_score=max(security_score, prompt_risk_score),
-            request_rate_score=request_rate_score,
-            secure_mode_enabled=secure_mode_enabled,
-            behavior_context=behavior_context,
-            reason_prefix="Inference runtime failure forced protective block.",
-            commit=False,
-        )
-        record_behavior_event(
-            username,
-            RequestDecision.BLOCK,
-            prompt_risk_score=prompt_risk_score,
-            security_score=max(security_score, prompt_risk_score),
-            request_rate_score=request_rate_score,
-            secure_mode_enabled=secure_mode_enabled,
-        )
-        await reassess_model_posture(
-            db,
-            model_row=model_row,
-            trigger="request_outcome",
-            request_context={
-                "decision": RequestDecision.BLOCK.value,
-                "request_rate_score": request_rate_score,
+        detail = build_chat_error(
+            code="provider_runtime_error",
+            title="Provider runtime error",
+            reason=str(exc) or "The model provider did not complete inference.",
+            explanation="The gateway screened the prompt, but the selected model runtime failed before returning output.",
+            suggested_fix="Try again later or ask an admin to check the model endpoint, hosting process, and provider logs.",
+            action_required="admin",
+            status="model_not_callable",
+            metadata={
+                "policy_decision": final_decision.value,
                 "prompt_risk_score": prompt_risk_score,
-                "security_score": max(security_score, prompt_risk_score),
+                "security_score": security_score,
                 "secure_mode_enabled": secure_mode_enabled,
             },
-            commit=False,
         )
 
         await log_request_db(
@@ -609,23 +739,26 @@ async def safe_infer(
             user_id=current_user.user_id,
             model_id=model_row.id,
             prompt_hash=hash_prompt(payload.prompt),
-            security_score=max(security_score, prompt_risk_score),
-            decision=RequestDecision.BLOCK,
+            security_score=security_score,
+            decision=final_decision,
             latency_ms=latency_ms,
             prompt_risk_score=prompt_risk_score,
             output_risk_score=0.0,
-            blocked=True,
+            blocked=False,
             secure_mode_enabled=secure_mode_enabled,
-            reason=f"Inference failed: {exc}",
-            decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update},
+            reason=f"Provider runtime error after pre-screen: {detail['reason']}",
+            decision_input_snapshot={
+                **decision_input_snapshot,
+                "provider_runtime_error": detail,
+                "inference_attempted": True,
+            },
             decision_trace={
                 **decision_trace,
-                "final_decision": RequestDecision.BLOCK.value,
-                "error_type": "inference_exception",
-                "error_detail": str(exc),
+                "provider_runtime_error": detail,
+                "inference_attempted": True,
             },
         )
-        raise HTTPException(status_code=500, detail=f"Inference failed: {exc}")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
 
     output_guard_result = inspect_output(
         output_text,
@@ -703,6 +836,24 @@ async def safe_infer(
     decision_trace["final_decision"] = final_decision.value
     decision_trace["output_guard_action"] = output_action
     decision_trace["output_guard_findings"] = output_findings
+    await update_attack_sequence(
+        db,
+        user_id=current_user.user_id,
+        model_id=model_row.id,
+        event_type="safe_inference_result",
+        decision=final_decision,
+        risk_score=prompt_risk_score,
+        security_score=combined_security_score,
+        reason=final_reason,
+        flags=list(getattr(guard_result, "flags", [])),
+        prompt_hash=hash_prompt(payload.prompt),
+        metadata={
+            "output_guard_action": output_action,
+            "output_guard_findings": output_findings,
+            "policy_adaptive_reasons": policy_result.get("adaptive_reasons", []),
+        },
+        commit=False,
+    )
 
     await log_request_db(
         db,

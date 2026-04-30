@@ -37,12 +37,17 @@ from app.services.prompt_guard import evaluate_prompt_guard, GuardDecision
 from app.services.model_router import route_to_model
 from app.services.db_logger import log_request_db
 from app.services.model_readiness import ensure_model_ready
+from app.services.model_runtime import ensure_model_runtime_ready
 from app.services.reassessment_service import (
     get_user_trust_penalty_persistent,
     reassess_model_posture,
     reassess_user_trust_on_request,
 )
 from app.services.security_catalog import list_detection_rules
+from app.services.threat_intelligence import (
+    get_user_attack_sequence_summary,
+    update_attack_sequence,
+)
 
 router = APIRouter()
 
@@ -76,6 +81,13 @@ def _model_base_risk_score(model) -> float | None:
     return max(0.0, min(100.0, 100.0 - base_trust))
 
 
+def _model_secured_risk_score(model) -> float | None:
+    persisted = _safe_float(getattr(model, "secured_risk_score", None))
+    if persisted is not None:
+        return max(0.0, min(100.0, persisted))
+    return None
+
+
 def _decision_snapshot(
     *,
     policy_result: dict,
@@ -85,6 +97,7 @@ def _decision_snapshot(
     secure_mode_enabled: bool,
     request_rate_score: float,
     final_decision: RequestDecision,
+    attack_sequence_summary: dict | None = None,
 ) -> tuple[dict, dict]:
     prompt_guard_decision = (
         prompt_result.decision.value
@@ -98,6 +111,9 @@ def _decision_snapshot(
         "policy_inputs": policy_result.get("inputs", {}),
         "effective_thresholds": policy_result.get("effective_thresholds", {}),
         "adaptive_reasons": policy_result.get("adaptive_reasons", []),
+        "effective_risk": policy_result.get("effective_risk"),
+        "effective_risk_model": policy_result.get("effective_risk_model", {}),
+        "effective_risk_explanation": policy_result.get("effective_risk_explanation"),
         "behavior_context": behavior_context,
         "prompt_guard": {
             "decision": prompt_guard_decision,
@@ -105,13 +121,26 @@ def _decision_snapshot(
             "flags": list(getattr(prompt_result, "flags", [])),
         },
         "request_rate_score": round(float(request_rate_score), 4),
+        "attack_sequence_summary": attack_sequence_summary or {},
+        "cross_model_abuse": {
+            "score": (attack_sequence_summary or {}).get("cross_model_abuse_score", 0.0),
+            "models": (attack_sequence_summary or {}).get("cross_model_models", 0),
+            "risky_events": (attack_sequence_summary or {}).get("cross_model_risky_events", 0),
+        },
     }
 
     decision_trace = {
         "policy_decision": policy_result.get("decision").value if hasattr(policy_result.get("decision"), "value") else str(policy_result.get("decision")),
         "guard_decision": prompt_guard_decision,
         "final_decision": final_decision.value,
+        "inputs": policy_result.get("inputs", {}),
+        "effective_thresholds": policy_result.get("effective_thresholds", {}),
+        "effective_risk": policy_result.get("effective_risk"),
+        "effective_risk_model": policy_result.get("effective_risk_model", {}),
+        "effective_risk_explanation": policy_result.get("effective_risk_explanation"),
         "adaptive_reasons": policy_result.get("adaptive_reasons", []),
+        "adaptive_threshold_reasons": policy_result.get("adaptive_reasons", []),
+        "attack_sequence_summary": attack_sequence_summary or {},
         "secure_mode_enabled": bool(secure_mode_enabled),
     }
 
@@ -159,6 +188,20 @@ async def detect_prompt(
     penalty_profile = get_penalty_profile(current_user.username)
     if penalty_profile.get("penalty_active"):
         remaining = int(penalty_profile.get("cooldown_remaining_seconds") or 0)
+        await update_attack_sequence(
+            db,
+            user_id=current_user.user_id,
+            model_id=model.id,
+            event_type="prompt_detection_cooldown",
+            decision=RequestDecision.BLOCK,
+            risk_score=1.0,
+            security_score=1.0,
+            reason=f"Temporary abuse penalty active. Retry after {remaining} second(s).",
+            prompt_hash=hash_prompt(payload.prompt),
+            cooldown_active=True,
+            metadata={"penalty_profile": penalty_profile},
+            commit=True,
+        )
         return DetectResponse(
             prompt_risk_score=1.0,
             flags=["temporary_abuse_penalty"],
@@ -175,7 +218,9 @@ async def detect_prompt(
     )
     user_trust_score = max(0.0, 1.0 - user_trust_penalty)
     behavior_context = get_behavior_context(current_user.username)
+    attack_sequence_summary = await get_user_attack_sequence_summary(db, user_id=current_user.user_id)
     model_base_risk_score = _model_base_risk_score(model)
+    secured_model_risk_score = _model_secured_risk_score(model)
 
     model_sensitivity_label = (
         model.sensitivity_level.value
@@ -209,6 +254,10 @@ async def detect_prompt(
         recent_blocks=behavior_context.get("recent_blocks", 0),
         recent_challenges=behavior_context.get("recent_challenges", 0),
         model_base_risk_score=model_base_risk_score,
+        secured_model_risk_score=secured_model_risk_score,
+        attack_sequence_severity=attack_sequence_summary.get("sequence_severity", 0.0),
+        repeated_pattern_count=attack_sequence_summary.get("repeated_pattern_count", 0),
+        cross_model_abuse_score=attack_sequence_summary.get("cross_model_abuse_score", 0.0),
     )
 
     policy_decision = policy["decision"]
@@ -255,6 +304,23 @@ async def detect_prompt(
         security_score=float(policy.get("security_score", 0.0)),
         request_rate_score=request_rate_score,
         secure_mode_enabled=bool(model.secure_mode_enabled),
+    )
+    await update_attack_sequence(
+        db,
+        user_id=current_user.user_id,
+        model_id=model.id,
+        event_type="prompt_detection",
+        decision=policy_decision,
+        risk_score=prompt_result.prompt_risk_score,
+        security_score=float(policy.get("security_score", 0.0)),
+        reason=policy_reason,
+        flags=prompt_result.flags,
+        prompt_hash=hash_prompt(payload.prompt),
+        metadata={
+            "policy_adaptive_reasons": policy.get("adaptive_reasons", []),
+            "dynamic_rule_matches": prompt_result.dynamic_rule_matches,
+        },
+        commit=False,
     )
     await reassess_model_posture(
         db,
@@ -318,6 +384,7 @@ async def infer(
             detail=f"Model {payload.model_id} is inactive",
         )
     ensure_model_ready(model, action="inference")
+    ensure_model_runtime_ready(model)
     secure_mode_enabled = bool(model.secure_mode_enabled)
     await reassess_model_posture(
         db,
@@ -413,7 +480,9 @@ async def infer(
     )
     user_trust_score = max(0.0, 1.0 - trust_penalty)
     behavior_context = get_behavior_context(current_user.username)
+    attack_sequence_summary = await get_user_attack_sequence_summary(db, user_id=current_user.user_id)
     model_base_risk_score = _model_base_risk_score(model)
+    secured_model_risk_score = _model_secured_risk_score(model)
 
     model_risk_score = (
         max(0.0, min(1.0, model_base_risk_score / 100.0))
@@ -447,6 +516,10 @@ async def infer(
         recent_blocks=behavior_context.get("recent_blocks", 0),
         recent_challenges=behavior_context.get("recent_challenges", 0),
         model_base_risk_score=model_base_risk_score,
+        secured_model_risk_score=secured_model_risk_score,
+        attack_sequence_severity=attack_sequence_summary.get("sequence_severity", 0.0),
+        repeated_pattern_count=attack_sequence_summary.get("repeated_pattern_count", 0),
+        cross_model_abuse_score=attack_sequence_summary.get("cross_model_abuse_score", 0.0),
     )
 
     decision = policy["decision"]
@@ -475,6 +548,7 @@ async def infer(
         secure_mode_enabled=secure_mode_enabled,
         request_rate_score=rate_score,
         final_decision=decision,
+        attack_sequence_summary=attack_sequence_summary,
     )
 
     # ── Step 5: Persist trust reassessment ─────────────────────────────────
@@ -497,6 +571,20 @@ async def infer(
         security_score=security_score,
         request_rate_score=rate_score,
         secure_mode_enabled=secure_mode_enabled,
+    )
+    await update_attack_sequence(
+        db,
+        user_id=current_user.user_id,
+        model_id=model.id,
+        event_type="legacy_detect_infer",
+        decision=decision,
+        risk_score=prompt_result.prompt_risk_score,
+        security_score=security_score,
+        reason=reason,
+        flags=prompt_result.flags,
+        prompt_hash=hash_prompt(payload.prompt),
+        metadata={"policy_adaptive_reasons": policy.get("adaptive_reasons", [])},
+        commit=False,
     )
     await reassess_model_posture(
         db,

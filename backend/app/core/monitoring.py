@@ -23,6 +23,7 @@ from app.services.reassessment_service import (
     list_trust_profiles_persistent,
     reset_user_trust_persistent,
 )
+from app.services.threat_intelligence import get_user_attack_sequence_summary
 
 router = APIRouter()
 _MONITORING_STARTED_AT = datetime.now(timezone.utc)
@@ -249,6 +250,14 @@ async def metrics_summary(
         "active_models": active_models,
         "block_rate": block_rate,
     }
+
+
+@router.get("/research/summary")
+async def my_research_summary(
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_active_user),
+):
+    return await get_user_attack_sequence_summary(db, user_id=current_user.user_id)
 
 
 @router.get("/logs")

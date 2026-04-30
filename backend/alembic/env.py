@@ -17,6 +17,7 @@ from app.models.model import Model
 from app.models.request_log import RequestLog
 from app.models.user_trust_event import UserTrustEvent
 from app.models.model_posture_event import ModelPostureEvent
+from app.models.attack_sequence_event import AttackSequenceEvent
 
 from app.core.config import settings
 

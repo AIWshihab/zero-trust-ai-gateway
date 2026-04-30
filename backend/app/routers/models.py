@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, Query, status, Depends
 
 from app.core.security import require_active_user, require_admin
 from app.core.database import get_db
@@ -19,6 +19,7 @@ from app.services.model_registry import (
     get_model_risk_score,
     get_model_sensitivity_score,
 )
+from app.services.model_runtime import get_model_runtime_status
 
 router = APIRouter()
 
@@ -29,10 +30,28 @@ router = APIRouter()
     responses={401: {"model": ErrorResponse, "description": "Unauthorized"}},
 )
 async def list_models(
+    include_inactive: bool = Query(default=False),
     db: AsyncSession = Depends(get_db),
     current_user: TokenData = Depends(require_active_user),
 ):
-    return await get_all_models(db=db)
+    if include_inactive and "admin" not in (current_user.scopes or []):
+        include_inactive = False
+    return await get_all_models(db=db, include_inactive=include_inactive)
+
+
+@router.get(
+    "/runtime-readiness",
+    responses={401: {"model": ErrorResponse, "description": "Unauthorized"}},
+)
+async def list_model_runtime_readiness(
+    include_inactive: bool = Query(default=False),
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_active_user),
+):
+    if include_inactive and "admin" not in (current_user.scopes or []):
+        include_inactive = False
+    models = await get_all_models(db=db, include_inactive=include_inactive)
+    return [get_model_runtime_status(model) for model in models]
 
 
 @router.get(

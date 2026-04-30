@@ -145,9 +145,9 @@ CONTROL_PLANE_HTML = """
         <h1>Control Plane Manager</h1>
         <p>Coach board for the gateway: draw up controls, call detection plays, and test whether a hostile prompt gets blocked before it crosses the net.</p>
       </div>
-      <div class="row"><a href="/dashboard">Operator Console</a><a href="/docs">API Docs</a></div>
+      <div class="row"><a href="/dashboard">Dashboard</a><a href="/models-manager">Models</a><a href="/logs">Logs</a><button id="logoutBtn">Logout</button></div>
     </header>
-    <section class="panel" style="margin-bottom:16px">
+    <section class="panel" style="margin-bottom:16px;display:none">
       <div class="row">
         <input id="token" placeholder="Paste bearer token or login below" style="flex:1;min-width:280px" />
         <input id="username" placeholder="username" />
@@ -218,12 +218,21 @@ CONTROL_PLANE_HTML = """
       if (!res.ok) throw new Error(typeof data === "object" ? JSON.stringify(data, null, 2) : data);
       return data;
     }
+    function hydrateSession() {
+      const token = sessionStorage.getItem("zta_token");
+      if (!token) {
+        window.location.href = "/login?next=/control-plane";
+        return;
+      }
+      $("token").value = token;
+    }
     async function login() {
       const form = new URLSearchParams();
       form.set("username", $("username").value);
       form.set("password", $("password").value);
       const data = await request(`${api}/auth/token`, { method: "POST", body: form });
       $("token").value = data.access_token;
+      sessionStorage.setItem("zta_token", data.access_token);
       await refreshAll();
     }
     async function loadRole() {
@@ -326,6 +335,10 @@ CONTROL_PLANE_HTML = """
       $("formTitle").textContent = key === "rules" ? "Add Detection Rule" : "Add Control";
     }));
     $("loginBtn").addEventListener("click", login);
+    $("logoutBtn").addEventListener("click", () => {
+      sessionStorage.removeItem("zta_token");
+      window.location.href = "/login";
+    });
     $("saveControl").addEventListener("click", saveControl);
     $("saveRule").addEventListener("click", saveRule);
     $("simulateBtn").addEventListener("click", simulate);
@@ -333,6 +346,10 @@ CONTROL_PLANE_HTML = """
     window.disableRule = disableRule;
     window.editControl = editControl;
     window.editRule = editRule;
+    hydrateSession();
+    refreshAll().catch((err) => {
+      $("simResult").textContent = String(err.message || err);
+    });
   </script>
 </body>
 </html>

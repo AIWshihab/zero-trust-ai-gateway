@@ -33,6 +33,7 @@ from app.services.security_catalog import (
     update_detection_rule,
     update_security_control,
 )
+from app.services.threat_intelligence import get_user_attack_sequence_summary
 
 router = APIRouter()
 
@@ -162,6 +163,7 @@ async def simulate_policy(
         username=username,
     )
     behavior_context = get_behavior_context(username)
+    attack_sequence_summary = await get_user_attack_sequence_summary(db, user_id=current_user.user_id)
     prompt_result = await evaluate_prompt_guard(
         payload.prompt,
         user_trust_score=max(0.0, 1.0 - trust_penalty),
@@ -180,6 +182,10 @@ async def simulate_policy(
         recent_blocks=behavior_context.get("recent_blocks", 0),
         recent_challenges=behavior_context.get("recent_challenges", 0),
         model_base_risk_score=getattr(model, "base_risk_score", None),
+        secured_model_risk_score=getattr(model, "secured_risk_score", None),
+        attack_sequence_severity=attack_sequence_summary.get("sequence_severity", 0.0),
+        repeated_pattern_count=attack_sequence_summary.get("repeated_pattern_count", 0),
+        cross_model_abuse_score=attack_sequence_summary.get("cross_model_abuse_score", 0.0),
     )
 
     decision = policy["decision"]
@@ -200,5 +206,11 @@ async def simulate_policy(
         },
         "policy": policy,
         "behavior_context": behavior_context,
+        "attack_sequence_summary": attack_sequence_summary,
+        "cross_model_abuse": {
+            "score": attack_sequence_summary.get("cross_model_abuse_score", 0.0),
+            "models": attack_sequence_summary.get("cross_model_models", 0),
+            "risky_events": attack_sequence_summary.get("cross_model_risky_events", 0),
+        },
         "enforcement_profile": get_penalty_profile(username),
     }

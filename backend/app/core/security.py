@@ -149,9 +149,8 @@ async def require_active_user(
         )
 
     current_user.user_id = int(user.id)
-    if "user" not in current_user.scopes:
-        current_user.scopes.append("user")
-    if user.is_admin and "admin" not in current_user.scopes:
+    current_user.scopes = ["user"]
+    if user.is_admin:
         current_user.scopes.append("admin")
 
     return current_user

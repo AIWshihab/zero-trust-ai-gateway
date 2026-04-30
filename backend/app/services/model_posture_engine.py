@@ -351,6 +351,10 @@ def _scan_freshness_factor(
     previous_scan_at: datetime | None,
 ) -> tuple[float, int, str, dict[str, Any]]:
     reference = previous_scan_at or assessed_at
+    if assessed_at.tzinfo is not None and reference.tzinfo is None:
+        reference = reference.replace(tzinfo=assessed_at.tzinfo)
+    elif assessed_at.tzinfo is None and reference.tzinfo is not None:
+        assessed_at = assessed_at.replace(tzinfo=reference.tzinfo)
     days_old = max(0, int((assessed_at - reference).total_seconds() // 86400))
 
     if days_old <= 1:

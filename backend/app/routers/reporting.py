@@ -5,11 +5,12 @@ from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.security import require_active_user
+from app.core.security import require_active_user, require_admin
 from app.models.model import Model
 from app.models.request_log import RequestLog
 from app.schemas import ComparisonReportResponse, ErrorResponse, TokenData
 from app.services.model_readiness import ensure_model_ready
+from app.services.threat_intelligence import build_research_metrics
 
 router = APIRouter()
 
@@ -19,6 +20,14 @@ def _safe_float(value, default=0.0):
         return float(value)
     except Exception:
         return default
+
+
+@router.get("/research-metrics")
+async def get_research_metrics(
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_admin),
+):
+    return await build_research_metrics(db)
 
 
 @router.get(
