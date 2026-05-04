@@ -138,6 +138,25 @@ def get_behavior_context(username: str) -> dict:
     recent_blocks = sum(1 for event in events if event.get("decision") == "block")
     recent_challenges = sum(1 for event in events if event.get("decision") == "challenge")
     recent_allows = sum(1 for event in events if event.get("decision") == "allow")
+    high_risk_events = sum(
+        1
+        for event in events
+        if float(event.get("prompt_risk_score") or 0.0) >= 0.75
+        or float(event.get("security_score") or 0.0) >= 0.75
+    )
+    high_rate_events = sum(1 for event in events if float(event.get("request_rate_score") or 0.0) >= 0.65)
+
+    anomaly_flags = []
+    if len(events) >= 20:
+        anomaly_flags.append("request_volume_spike")
+    if recent_blocks >= 3:
+        anomaly_flags.append("repeated_blocks")
+    if recent_challenges >= 5:
+        anomaly_flags.append("repeated_challenges")
+    if high_risk_events >= 4:
+        anomaly_flags.append("high_risk_cluster")
+    if high_rate_events >= 3:
+        anomaly_flags.append("rate_pressure")
 
     last_event = events[-1] if events else None
 
@@ -148,6 +167,9 @@ def get_behavior_context(username: str) -> dict:
         "recent_blocks": recent_blocks,
         "recent_challenges": recent_challenges,
         "recent_allows": recent_allows,
+        "high_risk_events": high_risk_events,
+        "high_rate_events": high_rate_events,
+        "anomaly_flags": anomaly_flags,
         "last_decision": (last_event or {}).get("decision"),
         "last_event_at": (last_event or {}).get("timestamp"),
     }

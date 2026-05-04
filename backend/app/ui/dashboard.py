@@ -1,3 +1,6 @@
+from app.ui.common import CYBER_UI_CSS, CYBER_UI_JS
+
+
 DASHBOARD_HTML = """
 <!doctype html>
 <html lang="en">
@@ -89,6 +92,11 @@ DASHBOARD_HTML = """
     .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 900; }
     .value { margin-top: 7px; font-size: 26px; font-weight: 950; }
     .grid { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 14px; }
+    .soc-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; margin: 16px 0; }
+    .mini-bars { display: grid; gap: 8px; margin-top: 12px; }
+    .bar { display:grid; grid-template-columns: 110px 1fr 44px; gap: 8px; align-items:center; color: var(--soft); font-size: 12px; }
+    .track { height: 9px; border-radius:999px; background: rgba(255,255,255,.08); overflow:hidden; }
+    .fill { height:100%; border-radius:999px; background: linear-gradient(90deg, var(--green), var(--amber), var(--red)); }
     .card { min-height: 230px; display: flex; flex-direction: column; }
     .card h2 { margin: 0 0 8px; color: var(--amber); text-transform: uppercase; letter-spacing: .08em; font-size: 16px; }
     .card p { margin: 0; color: var(--soft); font-size: 13px; }
@@ -130,6 +138,24 @@ DASHBOARD_HTML = """
       <div class="stat"><div class="inner"><div class="label">Logs</div><div id="logsValue" class="value">--</div></div></div>
       <div class="stat"><div class="inner"><div class="label">Threat Events</div><div id="eventsValue" class="value">--</div></div></div>
     </section>
+    <section class="soc-grid">
+      <article class="card"><div class="inner">
+        <div class="label">SOC Command</div>
+        <h2>Live Threat Posture</h2>
+        <div class="stats" style="grid-template-columns:repeat(4,1fr);margin:12px 0">
+          <div class="metric"><span class="muted">Allowed</span><strong id="socAllowed">--</strong></div>
+          <div class="metric"><span class="muted">Challenged</span><strong id="socChallenged">--</strong></div>
+          <div class="metric"><span class="muted">Blocked</span><strong id="socBlocked">--</strong></div>
+          <div class="metric"><span class="muted">Alerts</span><strong id="socAlerts">--</strong></div>
+        </div>
+        <div id="socBars" class="mini-bars"></div>
+      </div></article>
+      <article class="card"><div class="inner">
+        <div class="label">Threat Feed</div>
+        <h2>Active Alerts</h2>
+        <div id="socAlertList" class="meta">Loading SOC alerts...</div>
+      </div></article>
+    </section>
     <section id="options" class="grid"></section>
     <pre id="status">Loading gateway options...</pre>
   </main>
@@ -149,6 +175,14 @@ DASHBOARD_HTML = """
         location.href = "/login?next=/dashboard";
         throw new Error("Session expired");
       }
+      return data;
+    }
+    async function softRequest(path) {
+      const res = await fetch(path, { headers: authHeaders() });
+      const text = await res.text();
+      let data;
+      try { data = text ? JSON.parse(text) : {}; } catch { data = text; }
+      if (!res.ok) throw new Error("SOC feed unavailable");
       return data;
     }
     function openOption(item) {
@@ -181,12 +215,31 @@ DASHBOARD_HTML = """
       });
       $("status").textContent = "Ready.";
     }
+    async function loadSoc() {
+      try {
+        const [metrics, alerts, heatmap] = await Promise.all([
+          softRequest(`${api}/monitoring/metrics`),
+          softRequest(`${api}/monitoring/soc/alerts`),
+          softRequest(`${api}/monitoring/soc/threat-heatmap`)
+        ]);
+        $("socAllowed").textContent = metrics.allowed_requests ?? 0;
+        $("socChallenged").textContent = metrics.challenged_requests ?? 0;
+        $("socBlocked").textContent = metrics.blocked_requests ?? 0;
+        $("socAlerts").textContent = alerts.total ?? 0;
+        const cells = (heatmap.cells || []).slice(0, 6);
+        const max = Math.max(1, ...cells.map((c) => c.count || 0));
+        $("socBars").innerHTML = cells.map((cell) => `<div class="bar"><span>${cell.attack_stage}</span><div class="track"><div class="fill" style="width:${Math.max(4, ((cell.count || 0) / max) * 100)}%"></div></div><b>${cell.count}</b></div>`).join("") || `<div class="muted">No attack timeline yet.</div>`;
+        $("socAlertList").innerHTML = (alerts.alerts || []).slice(0, 4).map((alert) => `<div class="badge ${alert.severity === "high" ? "block" : "challenge"}" style="display:block;margin:7px 0">${alert.type}: ${alert.message}</div>`).join("") || "No active alerts.";
+      } catch (err) {
+        $("socAlertList").textContent = "SOC feeds require admin access or recent telemetry.";
+      }
+    }
     $("logoutBtn").addEventListener("click", () => {
       sessionStorage.removeItem("zta_token");
       location.href = "/login";
     });
-    request(`${api}/navigation/options`).then(render).catch((err) => { $("status").textContent = String(err.message || err); });
+    request(`${api}/navigation/options`).then((data) => { render(data); loadSoc(); }).catch((err) => { $("status").textContent = String(err.message || err); });
   </script>
 </body>
 </html>
-"""
+""".replace("</style>", f"{CYBER_UI_CSS}\n  </style>").replace("</body>", f"{CYBER_UI_JS}\n</body>")

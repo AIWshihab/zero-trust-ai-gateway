@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import require_active_user, require_admin
+from app.models.attack_sequence_event import AttackSequenceEvent
 from app.models.model import Model
 from app.models.model_posture_event import ModelPostureEvent
 from app.models.request_log import RequestLog
@@ -620,3 +621,113 @@ async def monitoring_health(
         "active_users": len(active_users),
         "flagged_users": flagged_users,
     }
+
+
+@router.get("/soc/attack-timeline")
+async def attack_timeline(
+    limit: int = Query(default=100, ge=1, le=500),
+    current_user: TokenData = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        await db.execute(
+            select(AttackSequenceEvent)
+            .order_by(AttackSequenceEvent.timestamp.desc())
+            .limit(limit)
+        )
+    ).scalars().all()
+    return {
+        "total": len(rows),
+        "events": [
+            {
+                "id": row.id,
+                "user_id": row.user_id,
+                "model_id": row.model_id,
+                "event_type": row.event_type,
+                "attack_stage": row.attack_stage,
+                "decision": row.decision,
+                "risk_score": row.risk_score,
+                "security_score": row.security_score,
+                "sequence_severity": row.sequence_severity,
+                "repeated_pattern_count": row.repeated_pattern_count,
+                "cross_model_score": row.cross_model_score,
+                "reason": row.reason,
+                "metadata": row.metadata_json or {},
+                "timestamp": _iso(row.timestamp),
+            }
+            for row in rows
+        ],
+    }
+
+
+@router.get("/soc/user-anomalies")
+async def user_anomalies(
+    current_user: TokenData = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    trust_profiles = await all_trust_profiles(current_user=current_user, db=db)
+    rate_profiles = {profile["username"]: profile for profile in all_rate_profiles(current_user=current_user)}
+    anomalies = []
+    for profile in trust_profiles:
+        username = str(profile.get("username") or "")
+        rate = rate_profiles.get(username, {})
+        flags = []
+        if _safe_float(profile.get("trust_score"), 1.0) < 0.45:
+            flags.append("low_trust")
+        if _coerce_int(profile.get("blocked_requests")) >= 3:
+            flags.append("repeated_blocks")
+        if bool(rate.get("is_rate_limited")) or bool(rate.get("penalty_active")):
+            flags.append("rate_or_cooldown_pressure")
+        if flags:
+            anomalies.append({**profile, "rate": rate, "anomaly_flags": flags})
+    return {"total": len(anomalies), "anomalies": anomalies}
+
+
+@router.get("/soc/threat-heatmap")
+async def threat_heatmap(
+    current_user: TokenData = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    rows = (
+        await db.execute(
+            select(
+                AttackSequenceEvent.attack_stage,
+                AttackSequenceEvent.model_id,
+                func.count(AttackSequenceEvent.id).label("count"),
+                func.avg(AttackSequenceEvent.sequence_severity).label("avg_severity"),
+            )
+            .group_by(AttackSequenceEvent.attack_stage, AttackSequenceEvent.model_id)
+            .order_by(func.count(AttackSequenceEvent.id).desc())
+        )
+    ).all()
+    return {
+        "cells": [
+            {
+                "attack_stage": stage,
+                "model_id": model_id,
+                "count": _coerce_int(count),
+                "avg_severity": round(_safe_float(avg_severity), 4),
+            }
+            for stage, model_id, count, avg_severity in rows
+        ]
+    }
+
+
+@router.get("/soc/alerts")
+async def soc_alerts(
+    current_user: TokenData = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    health = await monitoring_health(db=db, current_user=current_user)
+    timeline = await attack_timeline(limit=25, current_user=current_user, db=db)
+    anomalies = await user_anomalies(current_user=current_user, db=db)
+    alerts = []
+    metrics = health.get("metrics", {})
+    if _safe_float(metrics.get("block_rate")) >= 50:
+        alerts.append({"severity": "high", "type": "block_rate", "message": "Blocked request rate is elevated.", "metrics": metrics})
+    for event in timeline["events"]:
+        if _safe_float(event.get("sequence_severity")) >= 0.75:
+            alerts.append({"severity": "high", "type": "attack_sequence", "message": "High-severity attack sequence detected.", "event": event})
+    for anomaly in anomalies["anomalies"]:
+        alerts.append({"severity": "medium", "type": "user_anomaly", "message": "User anomaly detected.", "anomaly": anomaly})
+    return {"total": len(alerts), "alerts": alerts[:100]}

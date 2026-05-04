@@ -1,3 +1,6 @@
+from app.ui.common import CYBER_UI_CSS, CYBER_UI_JS
+
+
 MODEL_MANAGER_HTML = """
 <!doctype html>
 <html lang="en">
@@ -383,4 +386,4 @@ MODEL_MANAGER_HTML = """
   </script>
 </body>
 </html>
-"""
+""".replace("</style>", f"{CYBER_UI_CSS}\n  </style>").replace("</body>", f"{CYBER_UI_JS}\n</body>")

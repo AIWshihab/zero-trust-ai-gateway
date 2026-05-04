@@ -1,3 +1,6 @@
+from app.ui.common import CYBER_UI_CSS, CYBER_UI_JS
+
+
 CONTROL_PLANE_HTML = """
 <!doctype html>
 <html lang="en">
@@ -160,6 +163,9 @@ CONTROL_PLANE_HTML = """
       <button class="tab active" data-tab="controls">Control Catalog</button>
       <button class="tab" data-tab="rules">Detection Rules</button>
       <button class="tab" data-tab="simulation">Simulation</button>
+      <button class="tab" data-tab="firewall">Firewall Clients</button>
+      <button class="tab" data-tab="tests">Test Suite</button>
+      <button class="tab" data-tab="compare">Model Compare</button>
     </div>
     <div class="layout">
       <section class="panel admin-only" id="formPanel">
@@ -186,6 +192,17 @@ CONTROL_PLANE_HTML = """
           <label>Risk Delta <input id="rule_risk_delta" type="number" min="0" max="1" step="0.01" value="0.2" /></label>
           <button id="saveRule" class="primary">Save Rule</button>
         </div>
+        <div id="clientForm" style="display:none">
+          <label>Client ID <input id="fw_client_id" placeholder="partner-app" /></label>
+          <label>Name <input id="fw_name" placeholder="Partner App" /></label>
+          <label>API Key <input id="fw_api_key" placeholder="Leave blank to generate" /></label>
+          <label>Rate Limit <input id="fw_rate_limit" type="number" value="60" min="1" /></label>
+          <label>Window Seconds <input id="fw_rate_window" type="number" value="60" min="1" /></label>
+          <label>Trust Score <input id="fw_trust" type="number" value="0.8" min="0" max="1" step="0.01" /></label>
+          <label>Require Signature <select id="fw_require_signature"><option value="false">false</option><option value="true">true</option></select></label>
+          <label>HMAC Secret <input id="fw_hmac_secret" placeholder="optional signing secret" /></label>
+          <button id="saveClient" class="primary">Save Client</button>
+        </div>
       </section>
       <section class="panel">
         <div id="controlsTab"><h2>Controls</h2><div id="controlsList" class="cards"></div></div>
@@ -197,6 +214,20 @@ CONTROL_PLANE_HTML = """
           <button id="simulateBtn" class="primary">Simulate</button>
           <pre id="simResult">No simulation yet.</pre>
         </div>
+        <div id="firewallTab" style="display:none"><h2>Firewall Clients</h2><div id="clientsList" class="cards"></div></div>
+        <div id="testsTab" style="display:none">
+          <h2>Attack Simulation Suite</h2>
+          <label>Model ID <input id="test_model_id" type="number" value="1" /></label>
+          <button id="runTestsBtn" class="primary">Run Test Suite</button>
+          <pre id="testResult">No test run yet.</pre>
+        </div>
+        <div id="compareTab" style="display:none">
+          <h2>Model Security Comparison</h2>
+          <label>Model IDs <input id="compare_model_ids" placeholder="1,2,3" /></label>
+          <label>Prompt <textarea id="compare_prompt">Explain zero trust AI security.</textarea></label>
+          <button id="compareBtn" class="primary">Compare Models</button>
+          <pre id="compareResult">No comparison yet.</pre>
+        </div>
       </section>
     </div>
   </div>
@@ -206,8 +237,10 @@ CONTROL_PLANE_HTML = """
     let isAdmin = false;
     let controlsCache = [];
     let rulesCache = [];
+    let clientsCache = [];
     let editingControlId = null;
     let editingRuleId = null;
+    let editingClientId = null;
     const authHeaders = () => ({ Authorization: `Bearer ${$("token").value.trim()}` });
     const csv = (value) => value.split(",").map((x) => x.trim()).filter(Boolean);
     async function request(path, options = {}) {
@@ -251,7 +284,13 @@ CONTROL_PLANE_HTML = """
       rulesCache = rows;
       $("rulesList").innerHTML = rows.map((r) => `<article class="card"><div class="card-head"><div><span class="id">#${r.id}</span> <strong>${r.name}</strong></div><span class="badge ${r.enabled ? r.severity : "disabled"}">${r.enabled ? r.decision : "disabled"}</span></div><div class="muted">${r.target} ${r.match_type}: ${r.pattern}</div><div class="muted">${r.description || ""}</div>${isAdmin ? `<div class="row"><button onclick="editRule(${r.id})">Edit</button>${r.enabled ? `<button class="danger" onclick="disableRule(${r.id})">Disable</button>` : ""}</div>` : ""}</article>`).join("");
     }
-    async function refreshAll() { await loadRole(); await Promise.all([loadControls(), loadRules()]); }
+    async function loadClients() {
+      if (!isAdmin) return;
+      const rows = await request(`${api}/firewall/clients`, { headers: authHeaders() });
+      clientsCache = rows;
+      $("clientsList").innerHTML = rows.map((c) => `<article class="card"><div class="card-head"><div><span class="id">${c.client_id}</span> <strong>${c.name}</strong></div><span class="badge ${c.is_active ? "allow" : "block"}">${c.is_active ? "active" : "inactive"}</span></div><div class="muted">Rate ${c.rate_limit}/${c.rate_window_seconds}s · trust ${Number(c.trust_score).toFixed(2)} · signing ${c.require_signature ? "required" : "optional"}</div>${c.api_key ? `<pre>New API key: ${c.api_key}</pre>` : ""}<div class="row"><button onclick="editClient('${c.client_id}')">Edit</button><button class="danger" onclick="toggleClient('${c.client_id}', ${c.is_active ? "false" : "true"})">${c.is_active ? "Disable" : "Enable"}</button></div></article>`).join("") || `<article class="card"><strong>No firewall clients yet.</strong></article>`;
+    }
+    async function refreshAll() { await loadRole(); await Promise.all([loadControls(), loadRules(), loadClients()]); }
     async function saveControl() {
       const body = {
         control_id: $("control_id").value,
@@ -288,6 +327,27 @@ CONTROL_PLANE_HTML = """
       $("saveRule").textContent = "Save Rule";
       await loadRules();
     }
+    async function saveClient() {
+      const body = {
+        client_id: $("fw_client_id").value,
+        name: $("fw_name").value,
+        api_key: $("fw_api_key").value || null,
+        rate_limit: Number($("fw_rate_limit").value),
+        rate_window_seconds: Number($("fw_rate_window").value),
+        trust_score: Number($("fw_trust").value),
+        require_signature: $("fw_require_signature").value === "true",
+        hmac_secret: $("fw_hmac_secret").value || null,
+        is_active: true
+      };
+      const path = editingClientId ? `${api}/firewall/clients/${encodeURIComponent(editingClientId)}` : `${api}/firewall/clients`;
+      if (editingClientId) delete body.client_id;
+      const saved = await request(path, { method: editingClientId ? "PATCH" : "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      editingClientId = null;
+      $("fw_client_id").disabled = false;
+      $("saveClient").textContent = "Save Client";
+      await loadClients();
+      if (saved.api_key) $("clientsList").insertAdjacentHTML("afterbegin", `<article class="card"><strong>Copy this key now</strong><pre>${saved.api_key}</pre></article>`);
+    }
     function editControl(id) {
       const c = controlsCache.find((item) => item.id === id);
       if (!c) return;
@@ -316,12 +376,41 @@ CONTROL_PLANE_HTML = """
       $("rule_risk_delta").value = r.risk_delta;
       $("saveRule").textContent = "Update Rule";
     }
+    function editClient(clientId) {
+      const c = clientsCache.find((item) => item.client_id === clientId);
+      if (!c) return;
+      editingClientId = clientId;
+      $("fw_client_id").value = c.client_id;
+      $("fw_client_id").disabled = true;
+      $("fw_name").value = c.name;
+      $("fw_api_key").value = "";
+      $("fw_rate_limit").value = c.rate_limit;
+      $("fw_rate_window").value = c.rate_window_seconds;
+      $("fw_trust").value = c.trust_score;
+      $("fw_require_signature").value = String(c.require_signature);
+      $("fw_hmac_secret").value = "";
+      $("saveClient").textContent = "Update Client";
+    }
     async function disableControl(id) { await request(`${api}/security/controls/${id}`, { method: "DELETE", headers: authHeaders() }); await loadControls(); }
     async function disableRule(id) { await request(`${api}/security/detection-rules/${id}`, { method: "DELETE", headers: authHeaders() }); await loadRules(); }
+    async function toggleClient(clientId, active) { await request(`${api}/firewall/clients/${encodeURIComponent(clientId)}`, { method: "PATCH", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ is_active: active }) }); await loadClients(); }
     async function simulate() {
       const body = { model_id: Number($("sim_model_id").value), prompt: $("sim_prompt").value };
       const data = await request(`${api}/security/policy/simulate`, { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
       $("simResult").textContent = JSON.stringify(data, null, 2);
+    }
+    async function runTests() {
+      const data = await request(`${api}/security/test-suite?model_id=${Number($("test_model_id").value)}`, { method: "POST", headers: authHeaders() });
+      $("testResult").textContent = JSON.stringify(data, null, 2);
+    }
+    async function compareModels() {
+      const body = {
+        model_ids: csv($("compare_model_ids").value).map(Number).filter(Boolean),
+        prompt: $("compare_prompt").value,
+        parameters: { temperature: 0.2, max_tokens: 500 }
+      };
+      const data = await request(`${api}/security/models/compare`, { method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      $("compareResult").textContent = JSON.stringify(data, null, 2);
     }
     document.querySelectorAll(".tab").forEach((tab) => tab.addEventListener("click", () => {
       document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
@@ -330,9 +419,14 @@ CONTROL_PLANE_HTML = """
       $("controlsTab").style.display = key === "controls" ? "block" : "none";
       $("rulesTab").style.display = key === "rules" ? "block" : "none";
       $("simulationTab").style.display = key === "simulation" ? "block" : "none";
+      $("firewallTab").style.display = key === "firewall" ? "block" : "none";
+      $("testsTab").style.display = key === "tests" ? "block" : "none";
+      $("compareTab").style.display = key === "compare" ? "block" : "none";
       $("controlForm").style.display = key === "controls" ? "block" : "none";
       $("ruleForm").style.display = key === "rules" ? "block" : "none";
-      $("formTitle").textContent = key === "rules" ? "Add Detection Rule" : "Add Control";
+      $("clientForm").style.display = key === "firewall" ? "block" : "none";
+      $("formPanel").style.display = ["controls", "rules", "firewall"].includes(key) ? "block" : "none";
+      $("formTitle").textContent = key === "rules" ? "Add Detection Rule" : key === "firewall" ? "Add Firewall Client" : "Add Control";
     }));
     $("loginBtn").addEventListener("click", login);
     $("logoutBtn").addEventListener("click", () => {
@@ -341,11 +435,16 @@ CONTROL_PLANE_HTML = """
     });
     $("saveControl").addEventListener("click", saveControl);
     $("saveRule").addEventListener("click", saveRule);
+    $("saveClient").addEventListener("click", saveClient);
     $("simulateBtn").addEventListener("click", simulate);
+    $("runTestsBtn").addEventListener("click", runTests);
+    $("compareBtn").addEventListener("click", compareModels);
     window.disableControl = disableControl;
     window.disableRule = disableRule;
     window.editControl = editControl;
     window.editRule = editRule;
+    window.editClient = editClient;
+    window.toggleClient = toggleClient;
     hydrateSession();
     refreshAll().catch((err) => {
       $("simResult").textContent = String(err.message || err);
@@ -353,4 +452,4 @@ CONTROL_PLANE_HTML = """
   </script>
 </body>
 </html>
-"""
+""".replace("</style>", f"{CYBER_UI_CSS}\n  </style>").replace("</body>", f"{CYBER_UI_JS}\n</body>")

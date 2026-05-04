@@ -1,3 +1,6 @@
+from app.ui.common import CYBER_UI_CSS, CYBER_UI_JS
+
+
 CHAT_HTML = """
 <!doctype html>
 <html lang="en">
@@ -186,7 +189,11 @@ CHAT_HTML = """
       font-size: 12px;
       font-weight: 900;
       white-space: nowrap;
+      transition: box-shadow .22s ease, border-color .22s ease, background .22s ease, opacity .22s ease;
     }
+    .pill.fx-block { border-color: rgba(251,113,133,.72); box-shadow: 0 0 20px rgba(251,113,133,.35); animation: fxPulse .5s ease 2; }
+    .pill.fx-allow { border-color: rgba(52,211,153,.72); box-shadow: 0 0 18px rgba(52,211,153,.28); animation: fxFade .25s ease; }
+    .pill.fx-challenge { border-color: rgba(251,191,36,.72); box-shadow: 0 0 20px rgba(251,191,36,.35); animation: fxFlicker .45s ease; }
     .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 16px var(--green); }
     .dot.bad { background: var(--red); box-shadow: 0 0 16px var(--red); }
     .messages {
@@ -299,6 +306,26 @@ CHAT_HTML = """
     }
     .quick-grid { display: grid; gap: 8px; }
     .quick-grid button { text-align: left; color: var(--text); background: rgba(255,241,213,.08); border-color: rgba(255,178,77,.36); }
+    .mini-bars { display: grid; gap: 8px; margin-top: 8px; }
+    .bar { display:grid; grid-template-columns: 92px 1fr 38px; gap: 7px; align-items:center; color: var(--soft); font-size: 11px; }
+    .track { height: 8px; border-radius:999px; background: rgba(255,255,255,.08); overflow:hidden; }
+    .fill { height:100%; border-radius:999px; background: linear-gradient(90deg, var(--green), var(--amber), var(--red)); }
+    .fill.safe { background: linear-gradient(90deg, #22c55e, #16a34a); }
+    .fill.mid { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+    .fill.risky { background: linear-gradient(90deg, #fb7185, #ef4444); }
+    .flow {
+      margin-top: 10px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(0,0,0,.22);
+      font-size: 12px;
+      color: var(--soft);
+      line-height: 1.45;
+    }
+    .trace-toggle { margin-top: 8px; width: 100%; }
+    .trace-collapsible { display: none; margin-top: 8px; }
+    .trace-collapsible.open { display: block; }
     @media (max-width: 1120px) {
       .app { grid-template-columns: 280px minmax(0, 1fr); }
       .inspector { display: none; }
@@ -314,6 +341,9 @@ CHAT_HTML = """
       .send-stack { grid-template-columns: repeat(2, 1fr); min-width: 0; }
       .chat-head { grid-template-columns: 1fr; }
     }
+    @keyframes fxPulse { 0%{transform:scale(1)} 40%{transform:scale(1.02)} 100%{transform:scale(1)} }
+    @keyframes fxFade { from{opacity:.65} to{opacity:1} }
+    @keyframes fxFlicker { 0%,100%{opacity:1} 35%{opacity:.72} 65%{opacity:1} }
   </style>
 </head>
 <body>
@@ -327,6 +357,10 @@ CHAT_HTML = """
         </div>
         <div class="row">
           <a class="secondary" href="/dashboard">Dashboard</a>
+          <a class="secondary" href="/dashboard/soc">SOC</a>
+          <a class="secondary" href="/dashboard/firewall">Firewall</a>
+          <a class="secondary" href="/dashboard/models/compare">Compare</a>
+          <a class="secondary" href="/dashboard/security">Security Tests</a>
           <a class="secondary" href="/models-manager">Models</a>
           <button id="logoutBtn" class="secondary">Logout</button>
         </div>
@@ -384,6 +418,7 @@ CHAT_HTML = """
           </div>
         </div>
         <h2>Latest Gateway Result</h2>
+        <div id="whyBlocked" class="card" style="display:none"></div>
         <pre id="decisionTrace">No messages yet.</pre>
       </div>
     </aside>
@@ -488,12 +523,83 @@ CHAT_HTML = """
       if (!context) return currentPrompt;
       return `Continue this conversation. Use the prior messages only as context.\\n\\n${context}\\n\\nUser: ${currentPrompt}`;
     }
-    function setDecision(data) {
+    function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+    function applyDecisionFx(decision) {
+      const pill = $("decisionPill");
+      pill.classList.remove("fx-block", "fx-allow", "fx-challenge");
+      if (decision === "BLOCK") pill.classList.add("fx-block");
+      else if (decision === "ALLOW") pill.classList.add("fx-allow");
+      else if (decision === "CHALLENGE") pill.classList.add("fx-challenge");
+      setTimeout(() => pill.classList.remove("fx-block", "fx-allow", "fx-challenge"), 1200);
+    }
+    async function setDecision(data) {
       const decision = String(data.decision || "unknown").toUpperCase();
+      await sleep(140);
       $("decisionPill").textContent = decision;
       $("promptRisk").textContent = data.prompt_risk_score == null ? "--" : `${Math.round(data.prompt_risk_score * 100)}%`;
       $("securityScore").textContent = data.security_score == null ? "--" : `${Math.round(data.security_score * 100)}%`;
+      applyDecisionFx(decision);
+      renderWhy(data);
       showTrace(formatTrace(data));
+    }
+    function renderWhy(data) {
+      const panel = $("whyBlocked");
+      const factors = data.factors || {};
+      const alias = {
+        prompt_risk: "Prompt Risk",
+        user_trust: "User Trust",
+        model_risk: "Model Risk",
+        sensitivity: "Sensitivity"
+      };
+      const ordered = ["prompt_risk", "user_trust", "model_risk", "sensitivity"];
+      const colorClass = (score) => {
+        const n = Number(score || 0);
+        if (n >= 0.7) return "risky";
+        if (n >= 0.4) return "mid";
+        return "safe";
+      };
+      const factorRows = ordered
+        .filter((k) => factors[k] != null)
+        .map((key) => {
+          const value = Number(factors[key] || 0);
+          const pct = Math.round(value * 100);
+          return `<div class="bar"><span>${alias[key]}</span><div class="track"><div class="fill ${colorClass(value)}" style="width:${Math.max(3, Math.min(100, pct))}%"></div></div><b>${pct}%</b></div>`;
+        })
+        .join("");
+      const extraRows = Object.entries(factors)
+        .filter(([k]) => !ordered.includes(k))
+        .map(([key, value]) => {
+          const pct = Math.round(Number(value || 0) * 100);
+          return `<div class="bar"><span>${escapeHtml(key.replaceAll("_", " "))}</span><div class="track"><div class="fill ${colorClass(value)}" style="width:${Math.max(3, Math.min(100, pct))}%"></div></div><b>${pct}%</b></div>`;
+        }).join("");
+      const rows = factorRows + extraRows;
+      if (!data.explanation && !rows) {
+        panel.style.display = "none";
+        panel.innerHTML = "";
+        return;
+      }
+      const decision = String(data.decision || "").toUpperCase() || "UNKNOWN";
+      const pr = Number(factors.prompt_risk || data.prompt_risk_score || 0);
+      const ut = Number(factors.user_trust || 0);
+      const mr = Number(factors.model_risk || 0);
+      const flow = `Prompt Risk ${Math.round(pr * 100)}% → User Trust ${Math.round(ut * 100)}% → Model Risk ${Math.round(mr * 100)}% → ${decision}`;
+      panel.style.display = "grid";
+      panel.innerHTML = `
+        <h2>${String(data.decision || "").toLowerCase() === "block" ? "Why blocked?" : "Why this decision?"}</h2>
+        <div class="muted">${escapeHtml(data.explanation || data.reason || "Gateway decision completed.")}</div>
+        <div class="mini-bars">${rows}</div>
+        <div class="flow">${escapeHtml(flow)}</div>
+        <button id="traceToggleBtn" class="secondary trace-toggle">Show Decision Trace</button>
+        <div id="traceDetails" class="trace-collapsible"><pre>${escapeHtml(JSON.stringify(data.decision_trace || {}, null, 2))}</pre></div>
+      `;
+      const btn = $("traceToggleBtn");
+      const details = $("traceDetails");
+      if (btn && details) {
+        btn.onclick = () => {
+          const open = details.classList.toggle("open");
+          btn.textContent = open ? "Hide Decision Trace" : "Show Decision Trace";
+        };
+      }
     }
     function setUnavailableTrace(message, status) {
       $("decisionPill").textContent = "Unavailable";
@@ -531,6 +637,8 @@ CHAT_HTML = """
         prompt_risk: data.prompt_risk_score == null ? null : `${Math.round(data.prompt_risk_score * 100)}%`,
         security_score: data.security_score == null ? null : `${Math.round(data.security_score * 100)}%`,
         output_risk: data.output_risk_score,
+        explanation: data.explanation,
+        factors: data.factors || {},
         secure_mode: data.secure_mode_enabled ? "on" : "off",
         summary: data.reason || "Gateway decision completed.",
         cooldown: data.enforcement_profile?.penalty_active
@@ -681,7 +789,7 @@ CHAT_HTML = """
           headers: { ...authHeaders(), "Content-Type": "application/json" },
           body: JSON.stringify(body)
         });
-        setDecision(data);
+        await setDecision(data);
         const content = data.output || friendlyBlockedMessage(data.reason) || "The gateway returned no model output.";
         session.messages.push({
           role: data.blocked ? "system" : "assistant",
@@ -764,4 +872,4 @@ CHAT_HTML = """
   </script>
 </body>
 </html>
-"""
+""".replace("</style>", f"{CYBER_UI_CSS}\n  </style>").replace("</body>", f"{CYBER_UI_JS}\n</body>")

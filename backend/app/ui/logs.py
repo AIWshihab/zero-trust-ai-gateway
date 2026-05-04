@@ -1,3 +1,6 @@
+from app.ui.common import CYBER_UI_CSS, CYBER_UI_JS
+
+
 LOGS_HTML = """
 <!doctype html>
 <html lang="en">
@@ -308,4 +311,4 @@ LOGS_HTML = """
   </script>
 </body>
 </html>
-"""
+""".replace("</style>", f"{CYBER_UI_CSS}\n  </style>").replace("</body>", f"{CYBER_UI_JS}\n</body>")

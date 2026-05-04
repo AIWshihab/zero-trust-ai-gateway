@@ -4,6 +4,16 @@ from app.schemas.common import ErrorDetail, ErrorResponse, MessageResponse
 from app.schemas.detect import DetectRequest, DetectResponse
 from app.schemas.enums import ModelType, RequestDecision, RiskLevel, ScanStatus, SensitivityLevel
 from app.schemas.inference import InferenceRequest, InferenceResponse, SafeInferenceResponse
+from app.schemas.gateway import (
+    GatewayInterceptRequest,
+    GatewayInterceptResponse,
+    FirewallProxyResponse,
+    FirewallClientCreate,
+    FirewallClientOut,
+    FirewallClientUpdate,
+    OpenAIChatCompletionRequest,
+    OpenAIChatCompletionResponse,
+)
 from app.schemas.model import ModelBase, ModelCreate, ModelOut, ModelRiskInfoResponse
 from app.schemas.monitoring import (
     MetricsSummary,
@@ -35,6 +45,12 @@ __all__ = [
     "ErrorResponse",
     "InferenceRequest",
     "InferenceResponse",
+    "GatewayInterceptRequest",
+    "GatewayInterceptResponse",
+    "FirewallProxyResponse",
+    "FirewallClientCreate",
+    "FirewallClientOut",
+    "FirewallClientUpdate",
     "MessageResponse",
     "MetricsSummary",
     "ModelBase",
@@ -47,6 +63,8 @@ __all__ = [
     "ModelType",
     "ProtectionConfig",
     "ProtectionScoreResponse",
+    "OpenAIChatCompletionRequest",
+    "OpenAIChatCompletionResponse",
     "RequestDecision",
     "RequestLog",
     "RiskLevel",

@@ -42,9 +42,31 @@ async def init_db():
     from app.models.model_posture_event import ModelPostureEvent
     from app.models.security import SecurityControl, DetectionRule
     from app.models.attack_sequence_event import AttackSequenceEvent
+    from app.models.firewall import FirewallClient
+    from app.models.model_risk_history import ModelRiskHistory
 
-    _ = (User, Model, RequestLog, UserTrustEvent, ModelPostureEvent, SecurityControl, DetectionRule, AttackSequenceEvent)
+    _ = (
+        User,
+        Model,
+        RequestLog,
+        UserTrustEvent,
+        ModelPostureEvent,
+        SecurityControl,
+        DetectionRule,
+        AttackSequenceEvent,
+        FirewallClient,
+        ModelRiskHistory,
+    )
 
     if settings.AUTO_INIT_SCHEMA:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+
+
+async def init_additive_security_tables():
+    from app.models.firewall import FirewallClient
+    from app.models.model_risk_history import ModelRiskHistory
+
+    async with engine.begin() as conn:
+        await conn.run_sync(FirewallClient.__table__.create, checkfirst=True)
+        await conn.run_sync(ModelRiskHistory.__table__.create, checkfirst=True)

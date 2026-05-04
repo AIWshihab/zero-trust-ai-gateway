@@ -411,5 +411,12 @@ def evaluate_request(
             "baseline_block": round(_clamp(settings.TRUST_SCORE_BLOCK), 4),
             "research_threshold_pressure": round(research_pressure, 4),
         },
+        "weights": {
+            "model_risk": round(settings.WEIGHT_MODEL_RISK, 4),
+            "data_sensitivity": round(settings.WEIGHT_DATA_SENSITIVITY, 4),
+            "prompt_risk": round(settings.WEIGHT_PROMPT_RISK, 4),
+            "request_rate": round(settings.WEIGHT_REQUEST_RATE, 4),
+            "user_trust_penalty": round(settings.WEIGHT_USER_TRUST_PENALTY, 4),
+        },
         "adaptive_reasons": adaptive_reasons,
     }

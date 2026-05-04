@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.data_sensitivity import classify_data_sensitivity
 from app.core.output_guard import inspect_output
 from app.core.policy_engine import evaluate_request
 from app.core.rate_limiter import (
@@ -31,6 +32,7 @@ from app.services.model_readiness import ensure_model_ready
 from app.services.model_runtime import ensure_model_runtime_ready
 from app.services.chat_errors import build_chat_error, model_setup_error
 from app.services.db_logger import log_request_db
+from app.services.explainability import build_decision_explanation, simple_decision_explanation
 from app.services.model_router import route_to_model
 from app.services.prompt_guard import evaluate_prompt_guard, GuardDecision
 from app.services.reassessment_service import (
@@ -170,6 +172,7 @@ def _decision_snapshot(
         "effective_risk": policy_result.get("effective_risk"),
         "effective_risk_model": policy_result.get("effective_risk_model", {}),
         "effective_risk_explanation": policy_result.get("effective_risk_explanation"),
+        "weights": policy_result.get("weights", {}),
         "behavior_context": behavior_context,
         "guard": {
             "decision": guard_decision,
@@ -194,6 +197,7 @@ def _decision_snapshot(
         "effective_risk": policy_result.get("effective_risk"),
         "effective_risk_model": policy_result.get("effective_risk_model", {}),
         "effective_risk_explanation": policy_result.get("effective_risk_explanation"),
+        "weights": policy_result.get("weights", {}),
         "adaptive_reasons": policy_result.get("adaptive_reasons", []),
         "adaptive_threshold_reasons": policy_result.get("adaptive_reasons", []),
         "attack_sequence_summary": attack_sequence_summary or {},
@@ -201,6 +205,37 @@ def _decision_snapshot(
     }
 
     return decision_input_snapshot, decision_trace
+
+
+def _gateway_context(payload: InferenceRequest) -> dict:
+    raw = (payload.parameters or {}).get("gateway_context")
+    if not isinstance(raw, dict):
+        return {}
+
+    allowed_keys = {
+        "trace_id",
+        "client_id",
+        "external_user_id",
+        "source",
+        "forwarded",
+        "policy_context",
+        "firewall_client_id",
+        "firewall_client_db_id",
+        "client_rate",
+    }
+    return {key: raw.get(key) for key in allowed_keys if key in raw}
+
+
+def _with_gateway_context(snapshot: dict | None, gateway_context: dict, *, forwarded: bool | None = None) -> dict:
+    if not gateway_context:
+        return dict(snapshot or {})
+
+    merged = dict(snapshot or {})
+    context = dict(gateway_context)
+    if forwarded is not None:
+        context["forwarded"] = bool(forwarded)
+    merged["gateway_context"] = context
+    return merged
 
 
 @router.post(
@@ -221,6 +256,7 @@ async def safe_infer(
 ):
     started = time.perf_counter()
     username = current_user.username
+    gateway_context = _gateway_context(payload)
 
     result = await db.execute(select(Model).where(Model.id == payload.model_id))
     model_row = result.scalar_one_or_none()
@@ -332,20 +368,28 @@ async def safe_infer(
             blocked=True,
             secure_mode_enabled=secure_mode_enabled,
             reason=reason,
-            decision_input_snapshot={
-                "secure_mode_enabled": secure_mode_enabled,
-                "behavior_context_before": behavior_context,
-                "behavior_context_after": updated_behavior_context,
-                "trust_update": trust_update,
-                "penalty_profile": penalty_profile,
-            },
-            decision_trace={
-                "policy_decision": "block",
-                "guard_decision": "not_evaluated",
-                "final_decision": "block",
-                "adaptive_reasons": ["temporary abuse penalty active"],
-                "secure_mode_enabled": secure_mode_enabled,
-            },
+            decision_input_snapshot=_with_gateway_context(
+                {
+                    "secure_mode_enabled": secure_mode_enabled,
+                    "behavior_context_before": behavior_context,
+                    "behavior_context_after": updated_behavior_context,
+                    "trust_update": trust_update,
+                    "penalty_profile": penalty_profile,
+                },
+                gateway_context,
+                forwarded=False,
+            ),
+            decision_trace=_with_gateway_context(
+                {
+                    "policy_decision": "block",
+                    "guard_decision": "not_evaluated",
+                    "final_decision": "block",
+                    "adaptive_reasons": ["temporary abuse penalty active"],
+                    "secure_mode_enabled": secure_mode_enabled,
+                },
+                gateway_context,
+                forwarded=False,
+            ),
         )
 
         return SafeInferenceResponse(
@@ -353,10 +397,20 @@ async def safe_infer(
             output=None,
             decision=decision,
             security_score=1.0,
+            effective_risk=1.0,
             prompt_risk_score=1.0,
             output_risk_score=0.0,
             blocked=True,
+            forwarded=False,
             reason=reason,
+            **simple_decision_explanation(
+                decision=decision,
+                reason=reason,
+                security_score=1.0,
+                prompt_risk_score=1.0,
+                effective_risk=1.0,
+                forwarded=False,
+            ),
             latency_ms=latency_ms,
             secure_mode_enabled=secure_mode_enabled,
             enforcement_profile=penalty_profile,
@@ -437,21 +491,29 @@ async def safe_infer(
             blocked=True,
             secure_mode_enabled=secure_mode_enabled,
             reason=reason,
-            decision_input_snapshot={
-                "secure_mode_enabled": secure_mode_enabled,
-                "request_rate_score": 1.0,
-                "behavior_context_before": behavior_context,
-                "behavior_context_after": updated_behavior_context,
-                "trust_update": trust_update,
-                "penalty_profile": penalty_profile,
-            },
-            decision_trace={
-                "policy_decision": "block",
-                "guard_decision": "not_evaluated",
-                "final_decision": "block",
-                "adaptive_reasons": ["hard rate limit triggered immediate block"],
-                "secure_mode_enabled": secure_mode_enabled,
-            },
+            decision_input_snapshot=_with_gateway_context(
+                {
+                    "secure_mode_enabled": secure_mode_enabled,
+                    "request_rate_score": 1.0,
+                    "behavior_context_before": behavior_context,
+                    "behavior_context_after": updated_behavior_context,
+                    "trust_update": trust_update,
+                    "penalty_profile": penalty_profile,
+                },
+                gateway_context,
+                forwarded=False,
+            ),
+            decision_trace=_with_gateway_context(
+                {
+                    "policy_decision": "block",
+                    "guard_decision": "not_evaluated",
+                    "final_decision": "block",
+                    "adaptive_reasons": ["hard rate limit triggered immediate block"],
+                    "secure_mode_enabled": secure_mode_enabled,
+                },
+                gateway_context,
+                forwarded=False,
+            ),
         )
 
         return SafeInferenceResponse(
@@ -459,10 +521,20 @@ async def safe_infer(
             output=None,
             decision=decision,
             security_score=1.0,
+            effective_risk=1.0,
             prompt_risk_score=0.0,
             output_risk_score=0.0,
             blocked=True,
+            forwarded=False,
             reason=reason,
+            **simple_decision_explanation(
+                decision=decision,
+                reason=reason,
+                security_score=1.0,
+                prompt_risk_score=0.0,
+                effective_risk=1.0,
+                forwarded=False,
+            ),
             latency_ms=latency_ms,
             secure_mode_enabled=secure_mode_enabled,
             enforcement_profile=penalty_profile,
@@ -488,6 +560,7 @@ async def safe_infer(
     )
 
     prompt_risk_score = float(guard_result.prompt_risk_score)
+    data_sensitivity = classify_data_sensitivity(payload.prompt)
 
     model_base_risk_score = _model_base_risk_score(model_row)
     secured_model_risk_score = _model_secured_risk_score(model_row)
@@ -499,7 +572,7 @@ async def safe_infer(
 
     policy_result = evaluate_request(
         model_risk_score=model_risk_score,
-        sensitivity_score=_sensitivity_to_score(model_row.sensitivity_level),
+        sensitivity_score=max(_sensitivity_to_score(model_row.sensitivity_level), data_sensitivity.score),
         prompt_risk_score=prompt_risk_score,
         request_rate_score=request_rate_score,
         user_trust_penalty=user_trust_penalty,
@@ -517,6 +590,7 @@ async def safe_infer(
     policy_decision = policy_result.get("decision", RequestDecision.ALLOW)
     policy_reason = policy_result.get("reason", "Policy evaluation completed")
     security_score = float(policy_result.get("security_score", prompt_risk_score))
+    effective_risk = float(policy_result.get("effective_risk", security_score))
 
     guard_decision = _guard_to_request_decision(guard_result.decision)
 
@@ -545,6 +619,12 @@ async def safe_infer(
         final_decision=final_decision,
         attack_sequence_summary=attack_sequence_summary,
     )
+    decision_input_snapshot["data_sensitivity"] = {
+        "level": data_sensitivity.level,
+        "score": data_sensitivity.score,
+        "findings": data_sensitivity.findings,
+    }
+    decision_trace["data_sensitivity"] = decision_input_snapshot["data_sensitivity"]
 
     if final_decision == RequestDecision.BLOCK:
         latency_ms = (time.perf_counter() - started) * 1000.0
@@ -618,8 +698,12 @@ async def safe_infer(
             blocked=True,
             secure_mode_enabled=secure_mode_enabled,
             reason=final_reason,
-            decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update, "penalty_profile": penalty_profile},
-            decision_trace=decision_trace,
+            decision_input_snapshot=_with_gateway_context(
+                {**decision_input_snapshot, "trust_update": trust_update, "penalty_profile": penalty_profile},
+                gateway_context,
+                forwarded=False,
+            ),
+            decision_trace=_with_gateway_context(decision_trace, gateway_context, forwarded=False),
         )
 
         return SafeInferenceResponse(
@@ -627,10 +711,20 @@ async def safe_infer(
             output=None,
             decision=final_decision,
             security_score=security_score,
+            effective_risk=effective_risk,
             prompt_risk_score=prompt_risk_score,
             output_risk_score=0.0,
             blocked=True,
+            forwarded=False,
             reason=final_reason,
+            **build_decision_explanation(
+                decision=final_decision,
+                reason=final_reason,
+                policy_result=policy_result,
+                prompt_guard_result=guard_result,
+                data_sensitivity=data_sensitivity,
+                forwarded=False,
+            ),
             latency_ms=latency_ms,
             secure_mode_enabled=secure_mode_enabled,
             enforcement_profile=penalty_profile,
@@ -662,16 +756,24 @@ async def safe_infer(
             blocked=False,
             secure_mode_enabled=secure_mode_enabled,
             reason=f"Model not callable after pre-screen: {detail.get('title')}. {detail.get('reason')}",
-            decision_input_snapshot={
-                **decision_input_snapshot,
-                "model_readiness_error": detail,
-                "inference_attempted": False,
-            },
-            decision_trace={
-                **decision_trace,
-                "model_readiness_error": detail,
-                "inference_attempted": False,
-            },
+            decision_input_snapshot=_with_gateway_context(
+                {
+                    **decision_input_snapshot,
+                    "model_readiness_error": detail,
+                    "inference_attempted": False,
+                },
+                gateway_context,
+                forwarded=False,
+            ),
+            decision_trace=_with_gateway_context(
+                {
+                    **decision_trace,
+                    "model_readiness_error": detail,
+                    "inference_attempted": False,
+                },
+                gateway_context,
+                forwarded=False,
+            ),
         )
         raise HTTPException(status_code=exc.status_code, detail=detail)
 
@@ -704,16 +806,24 @@ async def safe_infer(
             blocked=False,
             secure_mode_enabled=secure_mode_enabled,
             reason=f"Provider not callable after pre-screen: {detail.get('title')}. {detail.get('reason')}",
-            decision_input_snapshot={
-                **decision_input_snapshot,
-                "provider_runtime_error": detail,
-                "inference_attempted": True,
-            },
-            decision_trace={
-                **decision_trace,
-                "provider_runtime_error": detail,
-                "inference_attempted": True,
-            },
+            decision_input_snapshot=_with_gateway_context(
+                {
+                    **decision_input_snapshot,
+                    "provider_runtime_error": detail,
+                    "inference_attempted": True,
+                },
+                gateway_context,
+                forwarded=True,
+            ),
+            decision_trace=_with_gateway_context(
+                {
+                    **decision_trace,
+                    "provider_runtime_error": detail,
+                    "inference_attempted": True,
+                },
+                gateway_context,
+                forwarded=True,
+            ),
         )
         raise HTTPException(status_code=exc.status_code, detail=detail)
     except Exception as exc:
@@ -747,16 +857,24 @@ async def safe_infer(
             blocked=False,
             secure_mode_enabled=secure_mode_enabled,
             reason=f"Provider runtime error after pre-screen: {detail['reason']}",
-            decision_input_snapshot={
-                **decision_input_snapshot,
-                "provider_runtime_error": detail,
-                "inference_attempted": True,
-            },
-            decision_trace={
-                **decision_trace,
-                "provider_runtime_error": detail,
-                "inference_attempted": True,
-            },
+            decision_input_snapshot=_with_gateway_context(
+                {
+                    **decision_input_snapshot,
+                    "provider_runtime_error": detail,
+                    "inference_attempted": True,
+                },
+                gateway_context,
+                forwarded=True,
+            ),
+            decision_trace=_with_gateway_context(
+                {
+                    **decision_trace,
+                    "provider_runtime_error": detail,
+                    "inference_attempted": True,
+                },
+                gateway_context,
+                forwarded=True,
+            ),
         )
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
 
@@ -868,8 +986,12 @@ async def safe_infer(
         blocked=blocked,
         secure_mode_enabled=secure_mode_enabled,
         reason=final_reason,
-        decision_input_snapshot={**decision_input_snapshot, "trust_update": trust_update, "penalty_profile": penalty_profile},
-        decision_trace=decision_trace,
+        decision_input_snapshot=_with_gateway_context(
+            {**decision_input_snapshot, "trust_update": trust_update, "penalty_profile": penalty_profile},
+            gateway_context,
+            forwarded=True,
+        ),
+        decision_trace=_with_gateway_context(decision_trace, gateway_context, forwarded=True),
     )
 
     return SafeInferenceResponse(
@@ -877,10 +999,21 @@ async def safe_infer(
         output=final_output,
         decision=final_decision,
         security_score=combined_security_score,
+        effective_risk=effective_risk,
         prompt_risk_score=prompt_risk_score,
         output_risk_score=output_risk_score,
         blocked=blocked,
+        forwarded=True,
         reason=final_reason,
+        **build_decision_explanation(
+            decision=final_decision,
+            reason=final_reason,
+            policy_result=policy_result,
+            prompt_guard_result=guard_result,
+            data_sensitivity=data_sensitivity,
+            output_guard_result=output_guard_result,
+            forwarded=True,
+        ),
         latency_ms=latency_ms,
         secure_mode_enabled=secure_mode_enabled,
         enforcement_profile=penalty_profile,
