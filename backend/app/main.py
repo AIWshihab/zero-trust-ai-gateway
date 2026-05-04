@@ -15,6 +15,7 @@ from app.ui.dashboard import DASHBOARD_HTML
 from app.ui.login import LOGIN_HTML
 from app.ui.logs import LOGS_HTML
 from app.ui.model_manager import MODEL_MANAGER_HTML
+from app.ui.research import RESEARCH_HTML
 from app.ui.signup import SIGNUP_HTML
 
 settings = get_settings()
@@ -156,6 +157,11 @@ async def models_manager_page():
 @app.get("/logs", response_class=HTMLResponse, tags=["Dashboard"])
 async def logs_page():
     return LOGS_HTML
+
+
+@app.get("/research", response_class=HTMLResponse, tags=["Dashboard"])
+async def research_page():
+    return RESEARCH_HTML
 
 
 @app.get("/signup", response_class=HTMLResponse, tags=["Dashboard"])

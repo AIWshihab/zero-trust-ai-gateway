@@ -54,7 +54,7 @@ def _base_options(is_admin: bool) -> list[dict]:
         {
             "id": "research",
             "title": "Research Evaluation",
-            "href": "/dashboard#research",
+            "href": "/research",
             "category": "research",
             "description": "View policy replay, counterfactuals, control effectiveness, and risk drift.",
             "summary": "Dissertation-ready evaluation layer for the gateway.",

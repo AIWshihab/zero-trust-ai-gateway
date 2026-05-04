@@ -12,6 +12,7 @@ from app.models.attack_sequence_event import AttackSequenceEvent
 from app.models.request_log import RequestLog
 from app.models.security import SecurityControl
 from app.schemas import RequestDecision
+from app.services.threat_intelligence import build_research_metrics
 
 RESEARCH_EVALUATION_LIMIT = 5000
 DECISION_ORDER = {"allow": 0, "challenge": 1, "block": 2}
@@ -231,6 +232,182 @@ async def build_policy_replay(db: AsyncSession, *, limit: int = RESEARCH_EVALUAT
             _summarize_replay(logs, mode="relaxed"),
         ],
         "formal_risk_evaluation": _formal_risk_metrics(logs),
+    }
+
+
+def _decision_counts(logs: list[RequestLog]) -> dict[str, int]:
+    counts = Counter(_normalize_decision(log.decision) for log in logs)
+    return {
+        "allow": counts.get("allow", 0),
+        "challenge": counts.get("challenge", 0),
+        "block": counts.get("block", 0),
+    }
+
+
+def _average(values: list[float]) -> float:
+    return round(sum(values) / len(values), 4) if values else 0.0
+
+
+def _research_readiness_score(*, logs: list[RequestLog], events: list[AttackSequenceEvent], replay: dict[str, Any], counterfactual: dict[str, Any]) -> dict[str, Any]:
+    checks = {
+        "has_request_logs": bool(logs),
+        "has_attack_sequence_events": bool(events),
+        "has_policy_replay_modes": len(replay.get("modes") or []) >= 3,
+        "has_counterfactual_examples": bool(counterfactual.get("examples")),
+        "has_effective_risk_metrics": bool((replay.get("formal_risk_evaluation") or {}).get("effective_risk_distribution")),
+    }
+    passed = sum(1 for value in checks.values() if value)
+    return {
+        "score": round(passed / max(1, len(checks)), 4),
+        "checks": checks,
+        "interpretation": (
+            "Evaluation dataset is research-ready."
+            if passed == len(checks)
+            else "Evaluation layer is operational; collect more real request/attack evidence for stronger dissertation results."
+        ),
+    }
+
+
+async def build_research_evaluation_report(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT) -> dict[str, Any]:
+    logs = list(
+        (
+            await db.execute(select(RequestLog).order_by(RequestLog.timestamp.desc()).limit(limit))
+        ).scalars().all()
+    )
+    events = list(
+        (
+            await db.execute(select(AttackSequenceEvent).order_by(AttackSequenceEvent.timestamp.desc()).limit(limit))
+        ).scalars().all()
+    )
+
+    replay = await build_policy_replay(db, limit=limit)
+    controls = await build_control_effectiveness(db, limit=limit)
+    counterfactual = await build_counterfactual_analysis(db, limit=min(limit, 2000))
+    drift = await build_risk_drift(db, bucket="hourly", limit=limit)
+    threat_metrics = await build_research_metrics(db)
+
+    current = next((item for item in replay.get("modes", []) if item.get("mode") == "current"), {})
+    stricter = next((item for item in replay.get("modes", []) if item.get("mode") == "stricter"), {})
+    relaxed = next((item for item in replay.get("modes", []) if item.get("mode") == "relaxed"), {})
+    top_controls = sorted(
+        controls.get("controls", []),
+        key=lambda item: (item.get("contribution_count", 0), item.get("contribution_percentage", 0.0)),
+        reverse=True,
+    )[:5]
+
+    decision_counts = _decision_counts(logs)
+    total = len(logs)
+    security_scores = [_safe_float(log.security_score) for log in logs]
+    prompt_scores = [_safe_float(log.prompt_risk_score) for log in logs]
+    output_scores = [_safe_float(log.output_risk_score) for log in logs]
+
+    latest_drift = (drift.get("summary") or {}).get("latest") or {}
+    findings = []
+    if total == 0:
+        findings.append("No request logs exist yet; run chat/safe inference to create evaluation evidence.")
+    if top_controls:
+        findings.append(f"Top observed control contributor is {top_controls[0]['control_id']} ({top_controls[0]['control_name']}).")
+    if counterfactual.get("difference_counts"):
+        findings.append("Counterfactual analysis shows at least one adaptive layer changed decisions.")
+    if latest_drift:
+        findings.append(f"Latest drift bucket block rate is {latest_drift.get('block_rate', 0.0)}.")
+    if not findings:
+        findings.append("Evaluation engines are ready; more live traffic will strengthen measured results.")
+
+    return {
+        "title": "Adaptive Behavioral Threat Intelligence Evaluation Report",
+        "research_contribution": "Adaptive Behavioral Threat Intelligence for Zero Trust AI Model Serving",
+        "inference_rerun": False,
+        "privacy": {
+            "raw_prompt_text_stored": False,
+            "uses_prompt_hashes": True,
+            "dataset_export_is_prompt_safe": True,
+        },
+        "sample": {
+            "request_logs": total,
+            "attack_sequence_events": len(events),
+            "decision_counts": decision_counts,
+            "block_rate": round(decision_counts["block"] / total, 4) if total else 0.0,
+            "challenge_rate": round(decision_counts["challenge"] / total, 4) if total else 0.0,
+            "average_security_score": _average(security_scores),
+            "average_prompt_risk_score": _average(prompt_scores),
+            "average_output_risk_score": _average(output_scores),
+        },
+        "policy_replay_summary": {
+            "current": current,
+            "stricter_delta_vs_current_block_rate": round(_safe_float(stricter.get("block_rate")) - _safe_float(current.get("block_rate")), 4),
+            "relaxed_delta_vs_current_block_rate": round(_safe_float(relaxed.get("block_rate")) - _safe_float(current.get("block_rate")), 4),
+        },
+        "control_effectiveness_summary": {
+            "total_enforcement_decisions": controls.get("total_enforcement_decisions", 0),
+            "top_controls": top_controls,
+        },
+        "counterfactual_summary": {
+            "total_requests_analyzed": counterfactual.get("total_requests_analyzed", 0),
+            "difference_counts": counterfactual.get("difference_counts", {}),
+            "example_count": len(counterfactual.get("examples", [])),
+        },
+        "risk_drift_summary": {
+            "bucket": drift.get("bucket"),
+            "bucket_count": (drift.get("summary") or {}).get("bucket_count", 0),
+            "latest": latest_drift,
+        },
+        "threat_intelligence_metrics": threat_metrics,
+        "formal_risk_evaluation": replay.get("formal_risk_evaluation", {}),
+        "research_readiness": _research_readiness_score(logs=logs, events=events, replay=replay, counterfactual=counterfactual),
+        "findings": findings,
+        "recommended_next_steps": [
+            "Run benign, suspicious, injection, extraction, jailbreak, and cross-model test suites through /chat or /usage/infer.",
+            "Export /api/v1/research/evaluation-dataset for dissertation tables without raw prompt text.",
+            "Compare current, stricter, and relaxed policy replay block/challenge rates as measurable security contribution.",
+            "Use counterfactual differences to quantify the contribution of adaptive thresholds, trust adjustment, and cross-model intelligence.",
+        ],
+    }
+
+
+async def build_evaluation_dataset(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT) -> dict[str, Any]:
+    logs = list(
+        (
+            await db.execute(select(RequestLog).order_by(RequestLog.timestamp.desc()).limit(limit))
+        ).scalars().all()
+    )
+    logs.reverse()
+
+    rows = []
+    for log in logs:
+        trace = log.decision_trace or {}
+        inputs = _extract_policy_inputs(log)
+        effective_model = trace.get("effective_risk_model") or {}
+        rows.append(
+            {
+                "log_id": log.id,
+                "timestamp": _event_time(log.timestamp).isoformat(),
+                "user_id": log.user_id,
+                "model_id": log.model_id,
+                "prompt_hash": log.prompt_hash,
+                "decision": _normalize_decision(log.decision),
+                "blocked": bool(log.blocked),
+                "secure_mode_enabled": bool(log.secure_mode_enabled),
+                "security_score": _safe_float(log.security_score),
+                "prompt_risk_score": _safe_float(log.prompt_risk_score),
+                "output_risk_score": _safe_float(log.output_risk_score),
+                "effective_risk": _safe_float(trace.get("effective_risk"), _safe_float(log.security_score)),
+                "model_risk_score": _safe_float(inputs.get("model_risk_score")),
+                "user_trust_penalty": _safe_float(inputs.get("user_trust_penalty")),
+                "attack_sequence_severity": _safe_float(inputs.get("attack_sequence_severity")),
+                "cross_model_abuse_score": _safe_float(inputs.get("cross_model_abuse_score")),
+                "adaptive_reason_count": len(trace.get("adaptive_reasons") or []),
+                "risk_contributions": effective_model.get("contributions") or effective_model.get("components") or {},
+                "latency_ms": _safe_float(log.latency_ms),
+            }
+        )
+
+    return {
+        "source": "request_logs",
+        "raw_prompt_text_included": False,
+        "row_count": len(rows),
+        "columns": list(rows[0].keys()) if rows else [],
+        "rows": rows,
     }
 
 

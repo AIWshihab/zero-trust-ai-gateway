@@ -7,11 +7,31 @@ from app.schemas import TokenData
 from app.services.research_evaluation import (
     build_control_effectiveness,
     build_counterfactual_analysis,
+    build_evaluation_dataset,
     build_policy_replay,
+    build_research_evaluation_report,
     build_risk_drift,
 )
 
 router = APIRouter()
+
+
+@router.get("/evaluation-report")
+async def evaluation_report(
+    limit: int = Query(default=5000, ge=1, le=10000),
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_admin),
+):
+    return await build_research_evaluation_report(db, limit=limit)
+
+
+@router.get("/evaluation-dataset")
+async def evaluation_dataset(
+    limit: int = Query(default=5000, ge=1, le=10000),
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_admin),
+):
+    return await build_evaluation_dataset(db, limit=limit)
 
 
 @router.get("/policy-replay")

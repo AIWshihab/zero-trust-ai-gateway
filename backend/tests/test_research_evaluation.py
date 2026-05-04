@@ -13,7 +13,9 @@ from app.models.user_trust_event import UserTrustEvent  # noqa: F401
 from app.services.research_evaluation import (
     build_control_effectiveness,
     build_counterfactual_analysis,
+    build_evaluation_dataset,
     build_policy_replay,
+    build_research_evaluation_report,
     build_risk_drift,
 )
 
@@ -178,6 +180,41 @@ def test_risk_drift_bucket_shape():
             assert result["series"]
             assert result["series"][0]["request_count"] == 2
             assert "attack_sequence_intensity" in result["series"][0]
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_research_evaluation_report_shape():
+    async def scenario():
+        engine, session_factory = await _seed_db()
+        async with session_factory() as db:
+            report = await build_research_evaluation_report(db)
+            assert report["research_contribution"] == "Adaptive Behavioral Threat Intelligence for Zero Trust AI Model Serving"
+            assert report["inference_rerun"] is False
+            assert report["privacy"]["raw_prompt_text_stored"] is False
+            assert report["sample"]["request_logs"] == 2
+            assert "policy_replay_summary" in report
+            assert "control_effectiveness_summary" in report
+            assert "counterfactual_summary" in report
+            assert "research_readiness" in report
+            assert report["recommended_next_steps"]
+        await engine.dispose()
+
+    asyncio.run(scenario())
+
+
+def test_evaluation_dataset_is_prompt_safe():
+    async def scenario():
+        engine, session_factory = await _seed_db()
+        async with session_factory() as db:
+            dataset = await build_evaluation_dataset(db)
+            assert dataset["raw_prompt_text_included"] is False
+            assert dataset["row_count"] == 2
+            assert "prompt_hash" in dataset["columns"]
+            assert "prompt" not in dataset["columns"]
+            assert "effective_risk" in dataset["columns"]
+            assert dataset["rows"][0]["prompt_hash"].startswith("hash-")
         await engine.dispose()
 
     asyncio.run(scenario())
