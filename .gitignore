@@ -1,0 +1,20 @@
+.venv
+__pycache__/
+*.pyc
+.env
+backend/.env
+.DS_Store
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+monitoring/request_logs.jsonl
+backend/monitoring/request_logs.jsonl
+monitoring/log_store.db
+
+# Local AI assistant/workbench metadata
+.codex/
+.claude/
+.claudeignore
