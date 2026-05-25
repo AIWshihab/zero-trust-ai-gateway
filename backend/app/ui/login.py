@@ -7,27 +7,30 @@ LOGIN_HTML = """
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Login - Zero Trust AI Gateway</title>
+  <title>Login — Zero Trust AI Gateway</title>
   <style>
     :root {
       color-scheme: dark;
-      --text: #fff7ea;
-      --muted: #d4c0a4;
-      --soft: #aab3bf;
-      --amber: #ffb13b;
-      --red: #ff4d3d;
-      --ink: #080604;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --bg:     #08080a;
+      --bg-1:   #0d0f14;
+      --bg-2:   #111420;
+      --bg-3:   #181b28;
+      --border: rgba(255,255,255,.08);
+      --b2:     rgba(255,255,255,.13);
+      --cyan:   #00d4ff;
+      --cyan-d: rgba(0,212,255,.1);
+      --green:  #22d3a0;
+      --red:    #ff4d6d;
+      --text:   #edf2ff;
+      --muted:  #7c8499;
+      --mono:   'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
     }
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       min-height: 100vh;
-      margin: 0;
+      background: var(--bg);
       color: var(--text);
-      background:
-        linear-gradient(118deg, rgba(255,255,255,.035) 0 1px, transparent 1px 70px),
-        radial-gradient(circle at 18% 12%, rgba(255,159,28,.28), transparent 30%),
-        linear-gradient(135deg, #070706, #15100b 52%, #2b1207);
       display: grid;
       place-items: center;
       padding: 20px;
@@ -37,207 +40,172 @@ LOGIN_HTML = """
       position: fixed;
       inset: 0;
       pointer-events: none;
-      background-image:
-        linear-gradient(rgba(255,241,213,.075) 2px, transparent 2px),
-        linear-gradient(90deg, rgba(255,241,213,.075) 2px, transparent 2px);
-      background-size: 116px 64px, 116px 64px;
-      opacity: .45;
+      background-image: linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px);
+      background-size: 100% 40px;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,.6), rgba(0,0,0,.02));
     }
     .wrap {
-      width: min(1080px, 100%);
       position: relative;
       z-index: 1;
+      width: min(1040px, 100%);
       display: grid;
-      grid-template-columns: minmax(300px, 1fr) 430px;
-      gap: 18px;
+      grid-template-columns: 1fr 400px;
+      gap: 20px;
       align-items: stretch;
     }
-    .hero, .card {
-      border: 2px solid var(--ink);
-      border-radius: 7px;
-      background: rgba(18,18,16,.94);
-      box-shadow: 7px 7px 0 rgba(0,0,0,.72), 0 22px 70px rgba(0,0,0,.34);
-      overflow: hidden;
-      position: relative;
+    .hero {
+      border: 1px solid var(--b2);
+      border-radius: 10px;
+      background: var(--bg-1);
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
     }
-    .hero::after, .card::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background: repeating-linear-gradient(-12deg, transparent 0 19px, rgba(255,159,28,.05) 20px 22px);
+    .logo-line { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+    .logo-line::before { content: "// "; color: var(--cyan); font-family: var(--mono); }
+    .hero h1 { font-size: clamp(28px,4.5vw,50px); font-weight: 800; line-height: 1.08; color: var(--text); letter-spacing: -.5px; }
+    .hero h1 span { color: var(--cyan); }
+    .hero-desc { font-size: 15px; line-height: 1.65; color: var(--muted); max-width: 520px; }
+    .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: auto; }
+    .feature { border: 1px solid var(--border); border-radius: 8px; padding: 14px; background: var(--bg-2); transition: border-color .2s; }
+    .feature:hover { border-color: rgba(0,212,255,.28); }
+    .feature b { display: block; font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+    .feature span { font-size: 12px; line-height: 1.5; color: var(--muted); }
+    .status-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .auth-card {
+      border: 1px solid var(--b2);
+      border-radius: 10px;
+      background: var(--bg-1);
+      padding: 30px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
-    .inner { position: relative; z-index: 1; padding: clamp(20px, 4vw, 40px); }
-    .eyebrow { color: var(--amber); text-transform: uppercase; letter-spacing: .12em; font-weight: 950; font-size: 12px; }
-    h1 {
-      margin: 8px 0 12px;
-      font-size: clamp(38px, 6vw, 76px);
-      line-height: .9;
-      text-transform: uppercase;
-      text-shadow: 4px 4px 0 #000, 8px 8px 0 rgba(244,123,32,.34);
-    }
-    p { color: #ffe9c5; line-height: 1.55; font-weight: 720; max-width: 680px; }
-    .feature-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 24px; }
-    .feature { border: 2px solid rgba(255,178,77,.24); border-radius: 7px; padding: 12px; background: rgba(0,0,0,.22); }
-    .feature b { display: block; color: #fff1d5; margin-bottom: 5px; }
-    .feature span { color: var(--soft); font-size: 12px; line-height: 1.4; }
-    .tabs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
-    button, a {
-      border: 2px solid var(--ink);
-      border-radius: 7px;
-      padding: 11px 13px;
-      color: #150905;
-      background: linear-gradient(135deg, #ffd164, #ff7a1a 52%, #f0441f);
-      font-weight: 900;
-      cursor: pointer;
-      text-decoration: none;
-      box-shadow: 4px 4px 0 rgba(0,0,0,.75);
-      font: inherit;
-    }
-    button.secondary, a.secondary { color: var(--text); background: rgba(255,241,213,.08); border-color: rgba(255,178,77,.42); }
-    button.active { filter: brightness(1.12); }
-    label { display: grid; gap: 6px; font-size: 12px; font-weight: 850; color: #dce5f1; margin-bottom: 12px; }
+    .auth-title p { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .auth-title p span { color: var(--cyan); font-family: var(--mono); }
+    .auth-title h2 { font-size: 18px; font-weight: 700; color: var(--text); }
+    .form-section { display: flex; flex-direction: column; gap: 14px; }
+    label { display: grid; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
     input {
       width: 100%;
-      border: 2px solid rgba(255,178,77,.34);
-      background: rgba(8,6,4,.82);
-      color: var(--text);
+      border: 1px solid var(--b2);
       border-radius: 7px;
-      padding: 12px;
+      background: var(--bg-3);
+      color: var(--text);
+      padding: 11px 13px;
       font: inherit;
+      font-size: 14px;
       outline: none;
+      transition: border-color .18s, box-shadow .18s;
+      text-transform: none;
+      letter-spacing: normal;
+      font-weight: 400;
     }
-    input:focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(255,159,28,.17); }
-    .hidden { display: none; }
-    .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-    pre {
-      margin: 14px 0 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-      background: rgba(8,6,4,.82);
-      border: 2px solid rgba(255,178,77,.24);
-      border-radius: 8px;
+    input:focus { border-color: rgba(0,212,255,.42); box-shadow: 0 0 0 3px rgba(0,212,255,.08); }
+    input::placeholder { color: var(--muted); }
+    .submit-btn {
+      width: 100%;
       padding: 12px;
-      min-height: 84px;
-      color: #fff1d5;
+      border-radius: 7px;
+      border: 0;
+      background: var(--cyan);
+      color: #000;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .15s, opacity .15s;
     }
-    .error { color: var(--red); }
-    @media (max-width: 880px) {
-      .wrap { grid-template-columns: 1fr; width: 100%; max-width: 480px; margin: 0 auto; }
-      .feature-grid { grid-template-columns: 1fr; }
-      body { min-height: 100svh; padding: 16px; display: flex; align-items: flex-start; justify-content: center; }
+    .submit-btn:hover { background: #00bde8; }
+    .submit-btn:disabled { opacity: .55; cursor: wait; }
+    .alt-link { text-align: center; font-size: 13px; color: var(--muted); }
+    .alt-link a { color: var(--cyan); text-decoration: none; }
+    .alt-link a:hover { text-decoration: underline; }
+    .result-box {
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--bg-2);
+      color: var(--muted);
+      min-height: 52px;
+      word-break: break-word;
     }
-    @media (max-width: 420px) {
-      .wrap { padding: 0; }
-      .hero .inner, .card .inner { padding: 18px; }
-      h1 { font-size: clamp(26px, 9vw, 44px); }
-    }
+    .result-box.error { color: var(--red); border-color: rgba(255,77,109,.28); background: rgba(255,77,109,.06); }
+    .result-box.ok    { color: var(--green); border-color: rgba(34,211,160,.28); background: rgba(34,211,160,.06); }
+    @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; max-width: 440px; } .hero { padding: 24px; } .features { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body class="no-shell">
   <main class="wrap">
     <section class="hero">
-      <div class="inner">
-        <div class="eyebrow">Zero Trust AI Gateway</div>
-        <h1>Secure AI Access</h1>
-        <p>Sign in to use protected AI chat and safety dashboards. Admin accounts can additionally manage models, controls, and policy operations.</p>
-        <div class="feature-grid">
-          <div class="feature"><b>Gateway Chat</b><span>Chat with registered models through prompt guard and formal risk scoring.</span></div>
-          <div class="feature"><b>Model Registry <small>(Admin)</small></b><span>Admins add, scan, protect, and manage OpenAI, Hugging Face, local, or custom models.</span></div>
-          <div class="feature"><b>Control Plane <small>(Admin)</small></b><span>Dynamic OWASP LLM controls and detection rules for production governance.</span></div>
-          <div class="feature"><b>Research Metrics</b><span>Policy replay, counterfactuals, control effectiveness, and risk drift for all authenticated users.</span></div>
-        </div>
+      <div>
+        <div class="logo-line">Zero Trust AI Gateway</div>
+        <h1 style="margin-top:14px">Behaviour-Aware<br><span>Secure AI</span> Inference</h1>
+        <p class="hero-desc" style="margin-top:14px">A research-grade Zero Trust gateway for secure AI model serving. Every request is screened, scored, and decided before inference runs.</p>
       </div>
+      <div class="features">
+        <div class="feature"><b>Prompt Defence</b><span>Injection detection and risk scoring before inference runs.</span></div>
+        <div class="feature"><b>Behaviour Scoring</b><span>Trust score builds from request history and security events.</span></div>
+        <div class="feature"><b>Policy Engine</b><span>Deterministic controls explain every allow / challenge / block.</span></div>
+        <div class="feature"><b>Full Audit Trail</b><span>Structured record of every decision with risk metrics.</span></div>
+      </div>
+      <div class="status-row"><span class="dot"></span>Gateway online · MSc Dissertation Project</div>
     </section>
-    <section class="card">
-      <div class="inner">
-        <div class="tabs">
-          <button id="loginTab" class="active">Login</button>
-          <button id="signupTab" class="secondary">Sign Up</button>
-        </div>
-        <form id="loginForm">
-          <label>Username <input id="loginUsername" autocomplete="username" placeholder="smash" /></label>
-          <label>Password <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Password" /></label>
-          <button type="submit">Enter Gateway</button>
-        </form>
-        <form id="signupForm" class="hidden">
-          <label>Email <input id="email" type="email" autocomplete="email" placeholder="you@example.com" /></label>
-          <label>Username <input id="signupUsername" autocomplete="username" placeholder="hinata-sec" /></label>
-          <label>Password <input id="signupPassword" type="password" autocomplete="new-password" placeholder="At least 6 characters" /></label>
-          <button type="submit">Create Account</button>
-        </form>
-        <pre id="result">Ready.</pre>
+
+    <section class="auth-card">
+      <div class="auth-title">
+        <p><span>//</span> Authentication</p>
+        <h2>Enter the Gateway</h2>
       </div>
+      <form id="loginForm" class="form-section">
+        <label>Username <input id="username" autocomplete="username" placeholder="your-username" /></label>
+        <label>Password <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" /></label>
+        <button class="submit-btn" type="submit">Sign In</button>
+      </form>
+      <div class="alt-link">No account? <a href="/signup">Create one</a></div>
+      <div id="result" class="result-box">Enter credentials to continue.</div>
     </section>
   </main>
+
   <script>
     const api = "/api/v1";
-    const $ = (id) => document.getElementById(id);
     const next = new URLSearchParams(location.search).get("next") || "/dashboard";
-    function friendlyError(data, status) {
-      const detail = typeof data === "object" ? data?.detail : data;
-      if (typeof detail === "string") {
-        if (status === 401) return "Incorrect username or password.";
-        if (status === 409) return detail;
-        return detail;
-      }
-      if (detail && typeof detail === "object") {
-        if (detail.title) return `${detail.title}${detail.explanation ? `: ${detail.explanation}` : ""}`;
-        if (detail.message) return detail.message;
-      }
-      if (status === 401) return "Incorrect username or password.";
-      if (status === 422) return "Please check all fields and try again.";
-      if (status >= 500) return "The gateway is temporarily unavailable. Please try again.";
-      return "Request failed. Please try again.";
-    }
+    const $ = (id) => document.getElementById(id);
+    if (sessionStorage.getItem("zta_token")) location.href = next;
+
     async function request(path, options = {}) {
       const res = await fetch(path, options);
       const text = await res.text();
       let data;
       try { data = text ? JSON.parse(text) : {}; } catch { data = text; }
-      if (!res.ok) throw new Error(friendlyError(data, res.status));
+      if (!res.ok) throw new Error(typeof data === "object" ? (data.detail || JSON.stringify(data)) : data);
       return data;
     }
-    function setMode(mode) {
-      $("loginForm").classList.toggle("hidden", mode !== "login");
-      $("signupForm").classList.toggle("hidden", mode !== "signup");
-      $("loginTab").classList.toggle("active", mode === "login");
-      $("signupTab").classList.toggle("active", mode === "signup");
-      $("loginTab").classList.toggle("secondary", mode !== "login");
-      $("signupTab").classList.toggle("secondary", mode !== "signup");
-      $("result").textContent = mode === "login" ? "Ready." : "Create an account to enter the gateway.";
-      $("result").className = "";
-    }
-    async function login(username, password) {
-      const form = new URLSearchParams();
-      form.set("username", username);
-      form.set("password", password);
-      const data = await request(`${api}/auth/token`, { method: "POST", body: form });
-      sessionStorage.setItem("zta_token", data.access_token);
-      location.href = next;
-    }
-    $("loginTab").addEventListener("click", () => setMode("login"));
-    $("signupTab").addEventListener("click", () => setMode("signup"));
-    $("loginForm").addEventListener("submit", async (event) => {
-      event.preventDefault();
-      try { await login($("loginUsername").value, $("loginPassword").value); }
-      catch (err) {
-        $("result").className = "error";
-        $("result").textContent = err?.message || "Login failed. Please try again.";
-      }
-    });
-    $("signupForm").addEventListener("submit", async (event) => {
-      event.preventDefault();
+
+    $("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = e.target.querySelector("button");
+      btn.disabled = true;
+      $("result").textContent = "Authenticating...";
+      $("result").className = "result-box";
       try {
-        const body = { email: $("email").value, username: $("signupUsername").value, password: $("signupPassword").value };
-        await request(`${api}/auth/signup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-        await login(body.username, body.password);
+        const form = new URLSearchParams();
+        form.set("username", $("username").value);
+        form.set("password", $("password").value);
+        const data = await request(`${api}/auth/token`, { method: "POST", body: form });
+        sessionStorage.setItem("zta_token", data.access_token);
+        $("result").className = "result-box ok";
+        $("result").textContent = "Authenticated. Entering gateway...";
+        setTimeout(() => { location.href = next; }, 400);
       } catch (err) {
-        $("result").className = "error";
-        $("result").textContent = err?.message || "Signup failed. Please check your details and try again.";
+        $("result").className = "result-box error";
+        $("result").textContent = err?.message || "Login failed.";
+        btn.disabled = false;
       }
     });
-    if (sessionStorage.getItem("zta_token")) location.href = next;
   </script>
 </body>
 </html>

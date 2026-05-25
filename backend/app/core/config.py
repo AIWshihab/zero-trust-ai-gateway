@@ -156,10 +156,19 @@ class Settings(BaseSettings):
     # OpenAI (optional)
     OPENAI_API_KEY: str | None = os.getenv("OPENAI_API_KEY")
     HF_TOKEN: str | None = os.getenv("HF_TOKEN")
+    GATEWAY_API_KEYS: str | None = os.getenv("GATEWAY_API_KEYS")
+    DEFAULT_GATEWAY_API_KEY: str | None = os.getenv("DEFAULT_GATEWAY_API_KEY")
 
     # Production deployment settings
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     FRONTEND_ORIGIN: str | None = os.getenv("FRONTEND_ORIGIN")
+    BROWSER_EXTENSION_ORIGIN_REGEX: str | None = os.getenv(
+        "BROWSER_EXTENSION_ORIGIN_REGEX",
+        r"^chrome-extension://[a-z]{32}$",
+    )
+    CHROME_EXTENSION_STORE_URL: str | None = os.getenv("CHROME_EXTENSION_STORE_URL")
+    EXTENSION_ID: str | None = os.getenv("EXTENSION_ID")
+    PUBLIC_GATEWAY_API_URL: str | None = os.getenv("PUBLIC_GATEWAY_API_URL")
     SECURE_COOKIES: bool = Field(
         default_factory=lambda: _coerce_bool_env(os.getenv("SECURE_COOKIES", "false"))
     )

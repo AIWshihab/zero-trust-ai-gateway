@@ -33,7 +33,7 @@ def build_model_not_ready_error(model_id: int, scan_status: str | None, action: 
 
 def ensure_model_ready(model_row, action: str) -> None:
     normalized = normalize_scan_status(model_row.scan_status)
-    if model_row.base_trust_score is not None and normalized in READY_SCAN_STATUSES:
+    if normalized in READY_SCAN_STATUSES:
         return
 
     raise HTTPException(

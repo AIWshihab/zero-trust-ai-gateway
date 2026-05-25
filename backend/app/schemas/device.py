@@ -82,9 +82,21 @@ class DeviceEventOut(BaseModel):
 class UserModelCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    model_type: str = Field(..., pattern="^(openai|huggingface|ollama|local|custom_api)$")
+    model_type: str = Field(..., pattern="^(openai|huggingface|local|custom_api)$")
     endpoint: Optional[str] = Field(None, max_length=500)
     provider_name: Optional[str] = Field(None, max_length=100)
     hf_model_id: Optional[str] = Field(None, max_length=255)
     auth_type: Optional[str] = Field(None, max_length=50)
     visibility: str = Field(default="private", pattern="^(private|shared)$")
+
+
+class UserModelUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=2, max_length=100)
+    description: Optional[str] = Field(None, max_length=500)
+    model_type: Optional[str] = Field(None, pattern="^(openai|huggingface|local|custom_api)$")
+    endpoint: Optional[str] = Field(None, max_length=500)
+    provider_name: Optional[str] = Field(None, max_length=100)
+    hf_model_id: Optional[str] = Field(None, max_length=255)
+    auth_type: Optional[str] = Field(None, max_length=50)
+    visibility: Optional[str] = Field(None, pattern="^(private|shared)$")
+    is_active: Optional[bool] = None

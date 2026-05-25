@@ -19,3 +19,5 @@ class TokenData(BaseModel):
     username: Optional[str] = None
     email: Optional[str] = None
     scopes: list[str] = Field(default_factory=list)
+    device_id: Optional[int] = None
+    client: Optional[str] = None

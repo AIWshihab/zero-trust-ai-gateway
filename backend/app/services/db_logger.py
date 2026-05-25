@@ -1,4 +1,5 @@
 from typing import Any, Optional
+from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,6 +44,7 @@ async def log_request_db(
         decision_input_snapshot=decision_input_snapshot,
         decision_trace=decision_trace,
         latency_ms=float(latency_ms),
+        timestamp=datetime.now(timezone.utc),
     )
 
     db.add(row)

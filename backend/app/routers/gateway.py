@@ -1,10 +1,13 @@
 from uuid import uuid4
 
+import hmac
+
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.config import get_settings
 from app.models.model import Model
 from app.routers.usage import safe_infer
 from app.schemas import (
@@ -18,18 +21,38 @@ from app.schemas import (
     TokenData,
 )
 from app.schemas.gateway import OpenAIChatCompletionChoice, OpenAIChatCompletionMessage
+from app.services.firewall_clients import authenticate_firewall_client
 
 router = APIRouter()
 
-VALID_GATEWAY_KEYS = ["key1"]
 
-
-def require_gateway_api_key(x_gateway_api_key: str | None = Header(default=None)) -> str:
+async def require_gateway_api_key(
+    x_gateway_api_key: str | None = Header(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> str:
     if not x_gateway_api_key:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing gateway API key")
-    if x_gateway_api_key not in VALID_GATEWAY_KEYS:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid gateway API key")
-    return x_gateway_api_key
+
+    configured = [
+        key.strip()
+        for key in (get_settings().GATEWAY_API_KEYS or "").split(",")
+        if key.strip()
+    ]
+    if any(hmac.compare_digest(x_gateway_api_key, key) for key in configured):
+        return x_gateway_api_key
+
+    try:
+        await authenticate_firewall_client(db, x_gateway_api_key)
+        return x_gateway_api_key
+    except HTTPException as exc:
+        if exc.status_code != status.HTTP_403_FORBIDDEN:
+            raise
+    except Exception:
+        if hasattr(db, "execute"):
+            raise
+        pass
+
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid gateway API key")
 
 
 def _messages_to_prompt(messages: list[dict]) -> str:
@@ -123,6 +146,7 @@ async def _run_gateway_pipeline(
         InferenceRequest(
             model_id=model_id,
             prompt=prompt,
+            messages=messages,
             parameters=pipeline_parameters,
         ),
         db=db,

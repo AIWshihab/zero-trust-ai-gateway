@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -323,6 +324,7 @@ async def scan_and_register_model(
     model_row = existing_result.scalar_one_or_none()
 
     if model_row is None:
+        now = datetime.now(timezone.utc)
         model_row = Model(
             name=payload.name,
             description=payload.description,
@@ -344,6 +346,8 @@ async def scan_and_register_model(
             scan_status=ScanStatus.PENDING.value,
             scan_summary_json=None,
             last_scan_at=None,
+            created_at=now,
+            updated_at=now,
         )
         db.add(model_row)
         await db.commit()

@@ -53,6 +53,20 @@ def _bucket_key(value: datetime | None, bucket: str) -> str:
     return timestamp.strftime("%Y-%m-%dT%H:00:00Z")
 
 
+def _request_log_query(user_id: int | None = None):
+    query = select(RequestLog)
+    if user_id is not None:
+        query = query.where(RequestLog.user_id == user_id)
+    return query
+
+
+def _attack_event_query(user_id: int | None = None):
+    query = select(AttackSequenceEvent)
+    if user_id is not None:
+        query = query.where(AttackSequenceEvent.user_id == user_id)
+    return query
+
+
 def _extract_policy_inputs(log: RequestLog) -> dict[str, Any]:
     trace = log.decision_trace or {}
     snapshot = log.decision_input_snapshot or {}
@@ -213,11 +227,11 @@ def _formal_risk_metrics(logs: list[RequestLog]) -> dict[str, Any]:
     }
 
 
-async def build_policy_replay(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT) -> dict[str, Any]:
+async def build_policy_replay(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT, user_id: int | None = None) -> dict[str, Any]:
     logs = list(
         (
             await db.execute(
-                select(RequestLog).order_by(RequestLog.timestamp.desc()).limit(limit)
+                _request_log_query(user_id).order_by(RequestLog.timestamp.desc()).limit(limit)
             )
         ).scalars().all()
     )
@@ -268,23 +282,26 @@ def _research_readiness_score(*, logs: list[RequestLog], events: list[AttackSequ
     }
 
 
-async def build_research_evaluation_report(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT) -> dict[str, Any]:
+async def build_research_evaluation_report(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT, user_id: int | None = None) -> dict[str, Any]:
     logs = list(
         (
-            await db.execute(select(RequestLog).order_by(RequestLog.timestamp.desc()).limit(limit))
+            await db.execute(_request_log_query(user_id).order_by(RequestLog.timestamp.desc()).limit(limit))
         ).scalars().all()
     )
     events = list(
         (
-            await db.execute(select(AttackSequenceEvent).order_by(AttackSequenceEvent.timestamp.desc()).limit(limit))
+            await db.execute(_attack_event_query(user_id).order_by(AttackSequenceEvent.timestamp.desc()).limit(limit))
         ).scalars().all()
     )
 
-    replay = await build_policy_replay(db, limit=limit)
-    controls = await build_control_effectiveness(db, limit=limit)
-    counterfactual = await build_counterfactual_analysis(db, limit=min(limit, 2000))
-    drift = await build_risk_drift(db, bucket="hourly", limit=limit)
-    threat_metrics = await build_research_metrics(db)
+    replay = await build_policy_replay(db, limit=limit, user_id=user_id)
+    controls = await build_control_effectiveness(db, limit=limit, user_id=user_id)
+    counterfactual = await build_counterfactual_analysis(db, limit=min(limit, 2000), user_id=user_id)
+    drift = await build_risk_drift(db, bucket="hourly", limit=limit, user_id=user_id)
+    threat_metrics = await build_research_metrics(db) if user_id is None else {
+        "scope": "current_user",
+        "note": "Global cross-user behavioural metrics are admin-only.",
+    }
 
     current = next((item for item in replay.get("modes", []) if item.get("mode") == "current"), {})
     stricter = next((item for item in replay.get("modes", []) if item.get("mode") == "stricter"), {})
@@ -315,8 +332,9 @@ async def build_research_evaluation_report(db: AsyncSession, *, limit: int = RES
         findings.append("Evaluation engines are ready; more live traffic will strengthen measured results.")
 
     return {
-        "title": "Adaptive Behavioral Threat Intelligence Evaluation Report",
-        "research_contribution": "Adaptive Behavioral Threat Intelligence for Zero Trust AI Model Serving",
+        "title": "Behaviour-Aware Zero Trust AI Gateway Evaluation Report",
+        "research_contribution": "Behaviour-aware adaptive risk enforcement for Zero Trust AI model serving",
+        "scope": "global" if user_id is None else "current_user",
         "inference_rerun": False,
         "privacy": {
             "raw_prompt_text_stored": False,
@@ -365,10 +383,10 @@ async def build_research_evaluation_report(db: AsyncSession, *, limit: int = RES
     }
 
 
-async def build_evaluation_dataset(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT) -> dict[str, Any]:
+async def build_evaluation_dataset(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT, user_id: int | None = None) -> dict[str, Any]:
     logs = list(
         (
-            await db.execute(select(RequestLog).order_by(RequestLog.timestamp.desc()).limit(limit))
+            await db.execute(_request_log_query(user_id).order_by(RequestLog.timestamp.desc()).limit(limit))
         ).scalars().all()
     )
     logs.reverse()
@@ -447,7 +465,7 @@ def _control_ids_for_log(log: RequestLog) -> set[str]:
     return controls
 
 
-async def build_control_effectiveness(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT) -> dict[str, Any]:
+async def build_control_effectiveness(db: AsyncSession, *, limit: int = RESEARCH_EVALUATION_LIMIT, user_id: int | None = None) -> dict[str, Any]:
     controls = list(
         (
             await db.execute(select(SecurityControl).where(SecurityControl.enabled.is_(True)).order_by(SecurityControl.control_id.asc()))
@@ -455,7 +473,7 @@ async def build_control_effectiveness(db: AsyncSession, *, limit: int = RESEARCH
     )
     logs = list(
         (
-            await db.execute(select(RequestLog).order_by(RequestLog.timestamp.desc()).limit(limit))
+            await db.execute(_request_log_query(user_id).order_by(RequestLog.timestamp.desc()).limit(limit))
         ).scalars().all()
     )
     enforcement_logs = [log for log in logs if _normalize_decision(log.decision) in {"challenge", "block"}]
@@ -505,10 +523,10 @@ def _counterfactual_policy(log: RequestLog, *, remove: str) -> dict[str, Any]:
     }
 
 
-async def build_counterfactual_analysis(db: AsyncSession, *, limit: int = 250) -> dict[str, Any]:
+async def build_counterfactual_analysis(db: AsyncSession, *, limit: int = 250, user_id: int | None = None) -> dict[str, Any]:
     logs = list(
         (
-            await db.execute(select(RequestLog).order_by(RequestLog.timestamp.desc()).limit(limit))
+            await db.execute(_request_log_query(user_id).order_by(RequestLog.timestamp.desc()).limit(limit))
         ).scalars().all()
     )
     scenarios = ("adaptive_thresholds", "cross_model_abuse_detection", "trust_based_adjustment")
@@ -550,16 +568,16 @@ async def build_counterfactual_analysis(db: AsyncSession, *, limit: int = 250) -
     }
 
 
-async def build_risk_drift(db: AsyncSession, *, bucket: str = "hourly", limit: int = RESEARCH_EVALUATION_LIMIT) -> dict[str, Any]:
+async def build_risk_drift(db: AsyncSession, *, bucket: str = "hourly", limit: int = RESEARCH_EVALUATION_LIMIT, user_id: int | None = None) -> dict[str, Any]:
     bucket = "daily" if bucket == "daily" else "hourly"
     logs = list(
         (
-            await db.execute(select(RequestLog).order_by(RequestLog.timestamp.desc()).limit(limit))
+            await db.execute(_request_log_query(user_id).order_by(RequestLog.timestamp.desc()).limit(limit))
         ).scalars().all()
     )
     events = list(
         (
-            await db.execute(select(AttackSequenceEvent).order_by(AttackSequenceEvent.timestamp.desc()).limit(limit))
+            await db.execute(_attack_event_query(user_id).order_by(AttackSequenceEvent.timestamp.desc()).limit(limit))
         ).scalars().all()
     )
 

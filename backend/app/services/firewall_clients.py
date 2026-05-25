@@ -10,11 +10,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models.firewall import FirewallClient
 
 DEFAULT_CLIENT_ID = "default-client"
 DEFAULT_CLIENT_NAME = "Default Gateway Client"
-DEFAULT_CLIENT_API_KEY = "key1"
 
 _client_request_history: dict[str, deque[float]] = defaultdict(lambda: deque(maxlen=5000))
 
@@ -44,18 +44,21 @@ def _prune(client_id: str, window_seconds: int) -> None:
         history.popleft()
 
 
-async def seed_default_firewall_client(db: AsyncSession) -> FirewallClient:
-    api_key_hash = hash_api_key(DEFAULT_CLIENT_API_KEY)
+async def seed_default_firewall_client(db: AsyncSession) -> FirewallClient | None:
     row = (
         await db.execute(select(FirewallClient).where(FirewallClient.client_id == DEFAULT_CLIENT_ID))
     ).scalar_one_or_none()
     if row is not None:
         return row
 
+    api_key = (get_settings().DEFAULT_GATEWAY_API_KEY or "").strip()
+    if not api_key:
+        return None
+
     row = FirewallClient(
         client_id=DEFAULT_CLIENT_ID,
         name=DEFAULT_CLIENT_NAME,
-        api_key_hash=api_key_hash,
+        api_key_hash=hash_api_key(api_key),
         rate_limit=60,
         rate_window_seconds=60,
         trust_score=0.8,

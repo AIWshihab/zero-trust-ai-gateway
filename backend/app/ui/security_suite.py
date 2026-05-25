@@ -196,8 +196,8 @@ SECURITY_SUITE_HTML = """
   <!-- Header -->
   <section class="top">
     <div class="top-left">
-      <div class="eyebrow">Zero Trust AI Gateway</div>
-      <h1>Security Test Suite</h1>
+      <div class="eyebrow">Zero Trust AI Gateway — Evaluation</div>
+      <h1>Behavioural Test Suite</h1>
     </div>
     <div class="top-right">
       <a class="nl" href="/dashboard">Dashboard</a>

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.models.device import Device
 from app.schemas import TokenData
 from app.models.user import User
 
@@ -92,6 +93,8 @@ def decode_access_token(token: str) -> TokenData:
         user_id_raw = payload.get("uid")
         email: str | None = payload.get("email")
         scopes = payload.get("scopes", [])
+        device_id_raw = payload.get("device_id")
+        client: str | None = payload.get("client")
 
         if username_raw is None:
             raise credentials_exception
@@ -104,11 +107,20 @@ def decode_access_token(token: str) -> TokenData:
             except (TypeError, ValueError):
                 user_id = None
 
+        device_id: int | None = None
+        if device_id_raw is not None:
+            try:
+                device_id = int(device_id_raw)
+            except (TypeError, ValueError):
+                device_id = None
+
         return TokenData(
             user_id=user_id,
             username=username,
             email=email,
             scopes=scopes,
+            device_id=device_id,
+            client=client,
         )
 
     except JWTError:
@@ -148,9 +160,26 @@ async def require_active_user(
             detail="User account is disabled",
         )
 
+    if current_user.device_id is not None:
+        device = (
+            await db.execute(
+                select(Device).where(
+                    Device.id == current_user.device_id,
+                    Device.user_id == user.id,
+                )
+            )
+        ).scalars().first()
+        if not device or device.is_revoked or device.status == "revoked":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Device access has been revoked",
+            )
+
     current_user.user_id = int(user.id)
-    current_user.scopes = ["user"]
-    if user.is_admin:
+    token_scopes = set(current_user.scopes or [])
+    token_scopes.add("user")
+    current_user.scopes = sorted(token_scopes)
+    if user.is_admin and "admin" not in current_user.scopes:
         current_user.scopes.append("admin")
 
     return current_user

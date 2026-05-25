@@ -8,6 +8,7 @@ from app.schemas.enums import RequestDecision
 class InferenceRequest(BaseModel):
     model_id: int = Field(..., gt=0)
     prompt: str = Field(..., min_length=1, max_length=4096)
+    messages: list[dict[str, Any]] = Field(default_factory=list)
     parameters: dict[str, Any] = Field(default_factory=dict)
 
 

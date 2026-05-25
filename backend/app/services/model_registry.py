@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import select
@@ -23,10 +24,13 @@ SENSITIVITY_SCORE_MAP = {
 
 async def register_model(db: AsyncSession, model: ModelCreate) -> ModelOut:
     model_data = model.model_dump()
+    now = datetime.now(timezone.utc)
     model_data["scan_status"] = ScanStatus.PENDING.value
     model_data["secure_mode_enabled"] = False
     model_data["base_trust_score"] = None
     model_data["protected_score"] = None
+    model_data["created_at"] = now
+    model_data["updated_at"] = now
     db_model = Model(**model_data)
     db.add(db_model)
     await db.commit()
@@ -109,6 +113,8 @@ async def seed_default_models(db: AsyncSession) -> None:
             endpoint="https://api.openai.com/v1/chat/completions",
             is_active=True,
             scan_status=ScanStatus.PENDING.value,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         ),
         Model(
             name="Mistral-7B",
@@ -119,6 +125,8 @@ async def seed_default_models(db: AsyncSession) -> None:
             endpoint="http://localhost:8001/generate",
             is_active=True,
             scan_status=ScanStatus.PENDING.value,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         ),
         Model(
             name="Internal Classifier",
@@ -129,6 +137,8 @@ async def seed_default_models(db: AsyncSession) -> None:
             endpoint=None,
             is_active=True,
             scan_status=ScanStatus.PENDING.value,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         ),
     ]
 

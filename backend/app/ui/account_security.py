@@ -7,140 +7,165 @@ ACCOUNT_SECURITY_HTML = """
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Account Security - Zero Trust AI Gateway</title>
+  <title>Account — Zero Trust AI Gateway</title>
   <style>
     :root {
       color-scheme: dark;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --text: #eef5ff;
-      --muted: #a7b4cb;
-      --ok: #4ade80;
-      --bad: #fb7185;
-      --warn: #fbbf24;
+      --bg: #08080a;
+      --bg-1: #0d0f14;
+      --bg-2: #111420;
+      --bg-3: #181b28;
+      --border: rgba(255,255,255,.08);
+      --b2: rgba(255,255,255,.13);
+      --cyan: #00d4ff;
+      --cyan-d: rgba(0,212,255,.1);
+      --green: #22d3a0;
+      --amber: #f5a623;
+      --red: #ff4d6d;
+      --text: #edf2ff;
+      --muted: #7c8499;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
     }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100svh;
-      color: var(--text);
-      background: radial-gradient(circle at 18% 8%, rgba(56,189,248,.22), transparent 30%), linear-gradient(135deg, #05080f, #111827 50%, #020617);
-      padding: 14px;
-    }
-    .shell {
-      width: min(980px, 100%);
-      margin: 0 auto;
-      display: grid;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; background: var(--bg); color: var(--text); padding: 20px; }
+    .shell { width: min(980px, 100%); margin: 0 auto; display: grid; gap: 14px; }
+    .page-banner {
+      border: 1px solid var(--b2);
+      border-radius: 8px;
+      background: var(--bg-1);
+      padding: 18px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       gap: 12px;
+      flex-wrap: wrap;
     }
+    .banner-left {}
+    .page-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .page-eyebrow::before { content: "// "; color: var(--cyan); font-family: var(--mono); }
+    .page-banner h1 { font-size: 22px; font-weight: 700; color: var(--text); }
+    .page-banner p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .badge { display: inline-flex; align-items: center; border: 1px solid var(--b2); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--muted); }
+    .badge.admin { color: var(--amber); border-color: rgba(245,166,35,.4); background: rgba(245,166,35,.08); }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
     .panel {
-      border-radius: 12px;
-      border: 1px solid rgba(148, 163, 184, .28);
-      background: rgba(3, 7, 18, .64);
-      box-shadow: 0 20px 42px rgba(2, 6, 23, .45);
-      padding: 16px;
+      border: 1px solid var(--b2);
+      border-radius: 8px;
+      background: var(--bg-1);
+      padding: 18px;
     }
-    h1 { margin: 0 0 8px; font-size: clamp(20px, 3.4vw, 30px); }
-    p { margin: 0; color: var(--muted); }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-    @media (min-width: 900px) {
-      .grid { grid-template-columns: 1fr 1fr; }
-    }
+    .panel-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+    .panel-title::before { content: "// "; color: var(--cyan); font-family: var(--mono); }
     label {
       display: grid;
-      gap: 6px;
-      margin-bottom: 10px;
+      gap: 5px;
       font-size: 12px;
+      font-weight: 600;
       color: var(--muted);
-      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
     }
     input {
       width: 100%;
-      border-radius: 10px;
-      border: 1px solid rgba(148, 163, 184, .36);
-      background: rgba(15, 23, 42, .82);
+      border: 1px solid var(--b2);
+      border-radius: 7px;
+      background: var(--bg-3);
       color: var(--text);
       padding: 10px 12px;
       font: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+      text-transform: none;
+      letter-spacing: normal;
+      font-weight: 400;
     }
+    input:focus { border-color: rgba(0,212,255,.42); box-shadow: 0 0 0 3px rgba(0,212,255,.08); }
+    input::placeholder { color: var(--muted); }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     button {
-      border: 1px solid rgba(56, 189, 248, .6);
-      background: rgba(56, 189, 248, .16);
-      color: #e0f2fe;
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-weight: 700;
+      border: 1px solid var(--b2);
+      border-radius: 7px;
+      padding: 9px 14px;
+      color: var(--text);
+      background: var(--bg-2);
+      font-weight: 600;
+      font-size: 13px;
       cursor: pointer;
+      font: inherit;
+      transition: border-color .18s, background .18s;
     }
-    button.secondary {
-      border-color: rgba(148,163,184,.44);
-      background: rgba(148,163,184,.1);
-      color: #dbeafe;
-    }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .status {
-      margin-top: 10px;
-      min-height: 24px;
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid rgba(148,163,184,.28);
-      color: #e2e8f0;
-      background: rgba(15,23,42,.6);
+    button:hover { border-color: var(--cyan); background: var(--bg-3); }
+    button.primary { background: var(--cyan); color: #000; border-color: var(--cyan); font-weight: 700; }
+    button.primary:hover { background: #00bde8; }
+    button.secondary { border-color: var(--border); background: transparent; color: var(--muted); }
+    button:disabled { opacity: .5; cursor: wait; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .status-box {
+      margin-top: 12px;
+      min-height: 40px;
+      padding: 10px 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: var(--bg-2);
       white-space: pre-wrap;
       word-break: break-word;
+      font-size: 13px;
+      line-height: 1.5;
     }
-    .status.ok { border-color: rgba(74,222,128,.5); color: var(--ok); }
-    .status.bad { border-color: rgba(251,113,133,.5); color: var(--bad); }
-    .hint { color: var(--muted); font-size: 12px; }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 4px 8px;
-      border: 1px solid rgba(148,163,184,.4);
-      color: #cbd5e1;
-    }
-    .badge.admin { border-color: rgba(250, 204, 21, .45); color: #fde68a; }
+    .status-box.ok  { border-color: rgba(34,211,160,.3); color: var(--green); background: rgba(34,211,160,.06); }
+    .status-box.bad { border-color: rgba(255,77,109,.3);  color: var(--red);   background: rgba(255,77,109,.06); }
     .hidden { display: none; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <main class="shell">
-    <section class="panel">
-      <div class="row" style="justify-content:space-between">
-        <h1>Account Security</h1>
-        <span id="roleBadge" class="badge">user</span>
+    <section class="page-banner">
+      <div class="banner-left">
+        <div class="page-eyebrow">Account</div>
+        <h1>Account Settings</h1>
+        <p>Profile, role, trust state, owned models, API usage, and recent security outcomes.</p>
       </div>
-      <p>Change your own password here. Admin users can also reset passwords for other accounts.</p>
+      <span id="roleBadge" class="badge">user</span>
     </section>
 
     <section class="grid">
       <article class="panel">
-        <h2 style="margin-top:0">Change My Password</h2>
+        <div class="panel-title">Profile</div>
+        <div id="profileSummary" class="status-box">Loading profile...</div>
+      </article>
+      <article class="panel">
+        <div class="panel-title">Usage & Outcomes</div>
+        <div id="usageSummary" class="status-box">Loading usage...</div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="panel-title">Change My Password</div>
         <label>Current Password <input id="currentPassword" type="password" autocomplete="current-password" /></label>
         <label>New Password <input id="newPassword" type="password" autocomplete="new-password" /></label>
-        <div class="row">
-          <button id="changeBtn">Update Password</button>
+        <div class="btn-row">
+          <button id="changeBtn" class="primary">Update Password</button>
           <button id="logoutBtn" class="secondary">Log Out</button>
         </div>
         <div class="hint">Use at least 6 characters.</div>
-        <div id="selfStatus" class="status">Ready.</div>
+        <div id="selfStatus" class="status-box">Ready.</div>
       </article>
 
       <article id="adminPanel" class="panel hidden">
-        <h2 style="margin-top:0">Admin Password Reset</h2>
+        <div class="panel-title">Admin Password Reset</div>
         <label>Target Username <input id="targetUsername" placeholder="username" /></label>
         <label>New Password <input id="targetPassword" type="password" placeholder="new password" /></label>
-        <div class="row">
-          <button id="resetBtn">Reset User Password</button>
+        <div class="btn-row">
+          <button id="resetBtn" class="primary">Reset User Password</button>
         </div>
         <div class="hint">Use this only for account recovery or access support.</div>
-        <div id="adminStatus" class="status">Admin tools ready.</div>
+        <div id="adminStatus" class="status-box">Admin tools ready.</div>
       </article>
     </section>
   </main>
@@ -154,7 +179,7 @@ ACCOUNT_SECURITY_HTML = """
     function setStatus(id, message, kind = "") {
       const node = $(id);
       node.textContent = message;
-      node.className = `status${kind ? ` ${kind}` : ""}`;
+      node.className = `status-box${kind ? ` ${kind}` : ""}`;
     }
 
     function friendlyError(data, status) {
@@ -183,7 +208,7 @@ ACCOUNT_SECURITY_HTML = """
 
     async function loadProfile() {
       if (!token()) {
-        location.href = "/login?next=/account-security";
+        location.href = "/login?next=/dashboard/account";
         return;
       }
       const profile = await request(`${api}/auth/me/profile`, { headers: authHeaders() });
@@ -191,6 +216,34 @@ ACCOUNT_SECURITY_HTML = """
       $("roleBadge").textContent = isAdmin ? "admin" : "user";
       $("roleBadge").classList.toggle("admin", isAdmin);
       $("adminPanel").classList.toggle("hidden", !isAdmin);
+      $("profileSummary").textContent = [
+        `Username: ${profile.user?.username || "unknown"}`,
+        `Email: ${profile.user?.email || "not set"}`,
+        `Role: ${isAdmin ? "admin" : "user"}`,
+        `Trust score: ${profile.user?.trust_score ?? "tracked in gateway events"}`
+      ].join("\n");
+      await loadAccountEvidence();
+    }
+
+    async function loadAccountEvidence() {
+      try {
+        const [models, logs] = await Promise.all([
+          request(`${api}/models/my`, { headers: authHeaders() }).catch(() => []),
+          request(`${api}/monitoring/logs?limit=8`, { headers: authHeaders() }).catch(() => ({ logs: [] })),
+        ]);
+        const rows = logs.logs || [];
+        const blocked = rows.filter((row) => String(row.decision || "").toLowerCase() === "block").length;
+        const challenged = rows.filter((row) => String(row.decision || "").toLowerCase() === "challenge").length;
+        $("usageSummary").textContent = [
+          `Owned models: ${models.length}`,
+          `Recent requests: ${rows.length}`,
+          `Recent blocked: ${blocked}`,
+          `Recent challenged: ${challenged}`,
+          `Latest outcome: ${rows[0]?.decision || "none yet"}`
+        ].join("\n");
+      } catch {
+        $("usageSummary").textContent = "Usage evidence is not available yet.";
+      }
     }
 
     async function changeMyPassword() {
@@ -249,5 +302,4 @@ ACCOUNT_SECURITY_HTML = """
   </script>
 </body>
 </html>
-""".replace("</style>", f"{CYBER_UI_CSS}\\n  </style>").replace("</body>", f"{CYBER_UI_JS}\\n</body>")
-
+""".replace("</style>", f"{CYBER_UI_CSS}\n  </style>").replace("</body>", f"{CYBER_UI_JS}\n</body>")

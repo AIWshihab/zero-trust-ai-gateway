@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, HTTPException, Query, status, Depends
@@ -15,7 +17,7 @@ from app.schemas import (
     RiskLevel,
     SensitivityLevel,
 )
-from app.schemas.device import UserModelCreate
+from app.schemas.device import UserModelCreate, UserModelUpdate
 from app.services.model_registry import (
     register_model,
     get_model,
@@ -55,6 +57,10 @@ async def _get_visible_models(
         )
     result = await db.execute(q.order_by(Model.created_at.desc(), Model.id.desc()))
     return [ModelOut.model_validate(m) for m in result.scalars().all()]
+
+
+def _can_access_model(model: Model, user_id: int, is_admin: bool) -> bool:
+    return bool(is_admin or model.visibility == "global" or model.owner_user_id == user_id)
 
 
 # ── Standard listing endpoints ────────────────────────────────────────────────
@@ -151,6 +157,7 @@ async def create_my_model(
     except ValueError:
         raise HTTPException(status_code=422, detail=f"Invalid model_type: {body.model_type}")
 
+    now = datetime.now(timezone.utc)
     db_model = Model(
         name=body.name,
         description=body.description,
@@ -166,6 +173,8 @@ async def create_my_model(
         secure_mode_enabled=False,
         owner_user_id=current_user.user_id,
         visibility=body.visibility,
+        created_at=now,
+        updated_at=now,
     )
     db.add(db_model)
     await db.commit()
@@ -205,6 +214,50 @@ async def delete_my_model(
     return {"message": f"Model {model_id} removed."}
 
 
+@router.patch(
+    "/my/{model_id}",
+    response_model=ModelOut,
+    responses={
+        401: {"model": ErrorResponse},
+        403: {"model": ErrorResponse, "description": "Not your model"},
+        404: {"model": ErrorResponse},
+        422: {"model": ErrorResponse},
+    },
+)
+async def update_my_model(
+    model_id: int,
+    body: UserModelUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: TokenData = Depends(require_active_user),
+):
+    """Update a user-owned model. Users can only configure their own models."""
+    if not current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+
+    result = await db.execute(select(Model).where(Model.id == model_id))
+    model = result.scalar_one_or_none()
+    if not model:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Model not found")
+    if model.owner_user_id != current_user.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only configure your own models")
+
+    from app.schemas.enums import ModelType
+
+    updates = body.model_dump(exclude_unset=True)
+    if "model_type" in updates and updates["model_type"] is not None:
+        try:
+            updates["model_type"] = ModelType(updates["model_type"])
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid model_type: {updates['model_type']}")
+    for field, value in updates.items():
+        setattr(model, field, value)
+    if updates:
+        model.scan_status = ScanStatus.PENDING.value
+    await db.commit()
+    await db.refresh(model)
+    return ModelOut.model_validate(model)
+
+
 # ── Single model + admin endpoints ────────────────────────────────────────────
 
 @router.get(
@@ -226,6 +279,9 @@ async def get_single_model(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Model with id {model_id} not found",
         )
+    is_admin = "admin" in (current_user.scopes or [])
+    if not _can_access_model(model, current_user.user_id or 0, is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only inspect models visible to your account")
     return model
 
 
@@ -289,6 +345,9 @@ async def get_model_risk_info(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Model with id {model_id} not found",
         )
+    is_admin = "admin" in (current_user.scopes or [])
+    if not _can_access_model(model, current_user.user_id or 0, is_admin):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only inspect risk for models visible to your account")
 
     risk_score = await get_model_risk_score(db=db, model_id=model_id)
     sensitivity_score = await get_model_sensitivity_score(db=db, model_id=model_id)

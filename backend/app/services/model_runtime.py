@@ -88,7 +88,7 @@ def get_model_runtime_status(model) -> dict:
             http_status=status.HTTP_403_FORBIDDEN,
         )
 
-    if base_trust_score is None or scan_status not in READY_SCAN_STATUSES:
+    if scan_status not in READY_SCAN_STATUSES:
         return status_payload(
             code="needs_assessment",
             label="Needs assessment",

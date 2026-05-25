@@ -59,8 +59,8 @@ EVALUATION_DASHBOARD_HTML = """
     <button id="exportSummaryBtn">Export Summary</button>
   </section>
   <div>
-    <div class="muted">Deterministic comparison using scenario dataset + existing gateway logs</div>
-    <h1 style="margin:0">Evaluation System</h1>
+    <div class="muted">Adaptive gateway vs. deterministic baseline — comparative enforcement analysis</div>
+    <h1 style="margin:0">Baseline Comparison</h1>
   </div>
 
   <article class="card">

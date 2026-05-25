@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Zero Trust AI Gateway",
+  "description": "Send browser prompts through the Zero Trust AI Gateway for policy decisions and protected inference.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "Zero Trust AI Gateway",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": ["storage", "activeTab", "tabs"],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*",
+    "https://*/*"
+  ]
+}

@@ -10,6 +10,8 @@ async def _dummy_db():
 
 
 def _client(monkeypatch, result: SafeInferenceResponse | None = None, calls: list | None = None) -> TestClient:
+    monkeypatch.setattr("app.routers.gateway.get_settings", lambda: type("Settings", (), {"GATEWAY_API_KEYS": "key1"})())
+
     async def fake_safe_infer(payload, db, current_user):
         if calls is not None:
             calls.append(

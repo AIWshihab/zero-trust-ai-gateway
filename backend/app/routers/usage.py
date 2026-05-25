@@ -101,6 +101,15 @@ def _model_secured_risk_score(model_row: Model) -> float | None:
     return None
 
 
+def _can_use_model(model_row: Model, current_user: TokenData) -> bool:
+    scopes = current_user.scopes or []
+    return bool(
+        "admin" in scopes
+        or model_row.visibility == "global"
+        or model_row.owner_user_id == current_user.user_id
+    )
+
+
 def _chat_detail_from_http_exception(exc: HTTPException) -> dict:
     if isinstance(exc.detail, dict) and {"title", "reason", "explanation", "suggested_fix"} <= set(exc.detail):
         return exc.detail
@@ -222,6 +231,11 @@ def _gateway_context(payload: InferenceRequest) -> dict:
         "firewall_client_id",
         "firewall_client_db_id",
         "client_rate",
+        "device_id",
+        "extension_version",
+        "browser_name",
+        "user_agent",
+        "timestamp",
     }
     return {key: raw.get(key) for key in allowed_keys if key in raw}
 
@@ -263,6 +277,8 @@ async def safe_infer(
 
     if not model_row:
         raise HTTPException(status_code=404, detail="Model not found")
+    if not _can_use_model(model_row, current_user):
+        raise HTTPException(status_code=403, detail="You can only run inference on global models or models owned by your account")
     if not bool(model_row.is_active):
         raise HTTPException(
             status_code=403,
@@ -782,6 +798,7 @@ async def safe_infer(
             model=model_row,
             prompt=payload.prompt,
             parameters=payload.parameters,
+            messages=payload.messages if payload.messages else None,
         )
     except HTTPException as exc:
         latency_ms = (time.perf_counter() - started) * 1000.0

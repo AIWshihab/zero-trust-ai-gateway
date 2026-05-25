@@ -214,6 +214,8 @@ async def metrics_summary(
         func.avg(RequestLog.prompt_risk_score).label("avg_prompt_risk_score"),
         func.avg(RequestLog.latency_ms).label("avg_latency_ms"),
     )
+    if "admin" not in (current_user.scopes or []):
+        query = query.where(RequestLog.user_id == current_user.user_id)
 
     result = await db.execute(query)
     row = result.one()
@@ -266,10 +268,12 @@ async def all_logs(
     limit: int = Query(default=50, le=500),
     decision: RequestDecision | None = Query(default=None),
     model_id: int | None = Query(default=None),
-    current_user: TokenData = Depends(require_admin),
+    current_user: TokenData = Depends(require_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     query = select(RequestLog)
+    if "admin" not in (current_user.scopes or []):
+        query = query.where(RequestLog.user_id == current_user.user_id)
 
     if decision is not None:
         decision_value = decision.value if hasattr(decision, "value") else str(decision)
@@ -626,16 +630,13 @@ async def monitoring_health(
 @router.get("/soc/attack-timeline")
 async def attack_timeline(
     limit: int = Query(default=100, ge=1, le=500),
-    current_user: TokenData = Depends(require_admin),
+    current_user: TokenData = Depends(require_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (
-        await db.execute(
-            select(AttackSequenceEvent)
-            .order_by(AttackSequenceEvent.timestamp.desc())
-            .limit(limit)
-        )
-    ).scalars().all()
+    query = select(AttackSequenceEvent)
+    if "admin" not in (current_user.scopes or []):
+        query = query.where(AttackSequenceEvent.user_id == current_user.user_id)
+    rows = (await db.execute(query.order_by(AttackSequenceEvent.timestamp.desc()).limit(limit))).scalars().all()
     return {
         "total": len(rows),
         "events": [
@@ -662,11 +663,16 @@ async def attack_timeline(
 
 @router.get("/soc/user-anomalies")
 async def user_anomalies(
-    current_user: TokenData = Depends(require_admin),
+    current_user: TokenData = Depends(require_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    trust_profiles = await all_trust_profiles(current_user=current_user, db=db)
-    rate_profiles = {profile["username"]: profile for profile in await all_rate_profiles(current_user=current_user)}
+    if "admin" in (current_user.scopes or []):
+        trust_profiles = await all_trust_profiles(current_user=current_user, db=db)
+        rate_profiles = {profile["username"]: profile for profile in await all_rate_profiles(current_user=current_user)}
+    else:
+        base_profile = await get_trust_profile_persistent(db, current_user.username)
+        trust_profiles = [await _build_enriched_trust_profile(db, username=current_user.username, base_profile=base_profile)]
+        rate_profiles = {current_user.username: _normalize_rate_profile(get_rate_profile(current_user.username))}
     anomalies = []
     for profile in trust_profiles:
         username = str(profile.get("username") or "")
@@ -685,21 +691,18 @@ async def user_anomalies(
 
 @router.get("/soc/threat-heatmap")
 async def threat_heatmap(
-    current_user: TokenData = Depends(require_admin),
+    current_user: TokenData = Depends(require_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    rows = (
-        await db.execute(
-            select(
-                AttackSequenceEvent.attack_stage,
-                AttackSequenceEvent.model_id,
-                func.count(AttackSequenceEvent.id).label("count"),
-                func.avg(AttackSequenceEvent.sequence_severity).label("avg_severity"),
-            )
-            .group_by(AttackSequenceEvent.attack_stage, AttackSequenceEvent.model_id)
-            .order_by(func.count(AttackSequenceEvent.id).desc())
-        )
-    ).all()
+    query = select(
+        AttackSequenceEvent.attack_stage,
+        AttackSequenceEvent.model_id,
+        func.count(AttackSequenceEvent.id).label("count"),
+        func.avg(AttackSequenceEvent.sequence_severity).label("avg_severity"),
+    )
+    if "admin" not in (current_user.scopes or []):
+        query = query.where(AttackSequenceEvent.user_id == current_user.user_id)
+    rows = (await db.execute(query.group_by(AttackSequenceEvent.attack_stage, AttackSequenceEvent.model_id).order_by(func.count(AttackSequenceEvent.id).desc()))).all()
     return {
         "cells": [
             {
@@ -715,19 +718,38 @@ async def threat_heatmap(
 
 @router.get("/soc/alerts")
 async def soc_alerts(
-    current_user: TokenData = Depends(require_admin),
+    current_user: TokenData = Depends(require_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     health = await monitoring_health(db=db, current_user=current_user)
     timeline = await attack_timeline(limit=25, current_user=current_user, db=db)
     anomalies = await user_anomalies(current_user=current_user, db=db)
     alerts = []
+    now = _iso(_utc_now())
     metrics = health.get("metrics", {})
     if _safe_float(metrics.get("block_rate")) >= 50:
-        alerts.append({"severity": "high", "type": "block_rate", "message": "Blocked request rate is elevated.", "metrics": metrics})
+        alerts.append({
+            "severity": "high",
+            "type": "block_rate",
+            "message": "Blocked request rate is elevated.",
+            "metrics": metrics,
+            "timestamp": now,
+        })
     for event in timeline["events"]:
         if _safe_float(event.get("sequence_severity")) >= 0.75:
-            alerts.append({"severity": "high", "type": "attack_sequence", "message": "High-severity attack sequence detected.", "event": event})
+            alerts.append({
+                "severity": "high",
+                "type": "attack_sequence",
+                "message": "High-severity attack sequence detected.",
+                "event": event,
+                "timestamp": event.get("timestamp") or now,
+            })
     for anomaly in anomalies["anomalies"]:
-        alerts.append({"severity": "medium", "type": "user_anomaly", "message": "User anomaly detected.", "anomaly": anomaly})
+        alerts.append({
+            "severity": "medium",
+            "type": "user_anomaly",
+            "message": "User anomaly detected.",
+            "anomaly": anomaly,
+            "timestamp": anomaly.get("last_activity") or now,
+        })
     return {"total": len(alerts), "alerts": alerts[:100]}

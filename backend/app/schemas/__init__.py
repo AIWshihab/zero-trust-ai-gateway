@@ -46,6 +46,11 @@ from app.schemas.device import (
     DeviceEventOut,
     UserModelCreate,
 )
+from app.schemas.extension import (
+    ExtensionPairingTokenResponse,
+    ExtensionRegisterDeviceRequest,
+    ExtensionRegisterDeviceResponse,
+)
 
 __all__ = [
     "ComparisonReportResponse",
@@ -103,4 +108,7 @@ __all__ = [
     "UserSessionOut",
     "DeviceEventOut",
     "UserModelCreate",
+    "ExtensionPairingTokenResponse",
+    "ExtensionRegisterDeviceRequest",
+    "ExtensionRegisterDeviceResponse",
 ]

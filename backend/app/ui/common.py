@@ -1,27 +1,38 @@
 CYBER_UI_CSS = """
 
-    /* Shared premium AI security UI primitives. These classes intentionally
-       decorate the existing HTML structure without changing data flow. */
+    /* ── GTRepo-inspired Zero Trust AI Gateway Design System ── */
     :root {
-      --zt-bg: #050505;
-      --zt-panel: rgba(255, 255, 255, .055);
-      --zt-panel-strong: rgba(255, 255, 255, .09);
-      --zt-border: rgba(255, 255, 255, .11);
-      --zt-border-hot: rgba(34, 211, 238, .46);
-      --zt-text: #f8fbff;
-      --zt-muted: #9ca8bd;
-      --zt-cyan: #22d3ee;
-      --zt-purple: #a855f7;
-      --zt-blue: #3b82f6;
-      --zt-green: #34d399;
-      --zt-yellow: #fbbf24;
-      --zt-red: #fb7185;
-      --zt-radius: 24px;
-      --zt-fast: 220ms cubic-bezier(.2, .8, .2, 1);
-      --zt-sidebar-w: 248px;
-      --zt-topbar-h: 60px;
+      --zt-bg:           #08080a;
+      --zt-bg-1:         #0d0f14;
+      --zt-bg-2:         #111420;
+      --zt-bg-3:         #181b28;
+      --zt-panel:        rgba(13, 15, 22, .82);
+      --zt-panel-strong: rgba(13, 15, 22, .96);
+      --zt-border:       rgba(255, 255, 255, .07);
+      --zt-border-2:     rgba(255, 255, 255, .12);
+      --zt-border-hot:   rgba(0, 212, 255, .36);
+      --zt-text:         #edf2ff;
+      --zt-muted:        #7c8499;
+      --zt-muted-2:      #9aa0b4;
+      --zt-cyan:         #00d4ff;
+      --zt-cyan-dim:     rgba(0, 212, 255, .10);
+      --zt-cyan-border:  rgba(0, 212, 255, .28);
+      --zt-green:        #22d3a0;
+      --zt-green-dim:    rgba(34, 211, 160, .10);
+      --zt-amber:        #f5a623;
+      --zt-amber-dim:    rgba(245, 166, 35, .10);
+      --zt-red:          #ff4d6d;
+      --zt-red-dim:      rgba(255, 77, 109, .10);
+      --zt-blue:         #4d9cff;
+      --zt-blue-dim:     rgba(77, 156, 255, .10);
+      --zt-radius:       8px;
+      --zt-fast:         200ms cubic-bezier(.2, .8, .2, 1);
+      --zt-sidebar-w:    248px;
+      --zt-topbar-h:     58px;
+      --zt-mono:         'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
     }
     *, *::before, *::after { box-sizing: border-box; }
+    .hidden { display: none !important; }
     html {
       background: var(--zt-bg);
       min-width: 0;
@@ -33,17 +44,16 @@ CYBER_UI_CSS = """
       margin: 0;
       min-width: 0;
       overflow-x: hidden;
-      background:
-        radial-gradient(circle at 16% 10%, rgba(34, 211, 238, .18), transparent 32%),
-        radial-gradient(circle at 78% 4%, rgba(168, 85, 247, .22), transparent 30%),
-        radial-gradient(circle at 62% 88%, rgba(59, 130, 246, .12), transparent 34%),
-        linear-gradient(135deg, #06111f 0%, #160724 44%, #050505 100%) !important;
+      background: var(--zt-bg) !important;
       color: var(--zt-text) !important;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
     }
     img, canvas, svg, video { max-width: 100%; height: auto; }
     table { max-width: 100%; }
     pre, code, textarea, input, select, button, a { max-width: 100%; }
-    input, textarea, select, button { font-size: 16px; }
+    input, textarea, select, button { font-size: 14px; }
+
+    /* ── Layout containers ── */
     .shell, .app, .wrap, header, main, section, article, aside, .panel, .card, .stat, .metric, .status-card {
       min-width: 0;
     }
@@ -58,79 +68,66 @@ CYBER_UI_CSS = """
     .grid, .stats, .metrics, .summary, .wide, .layout, .cc-grid, .soc-grid, .metric-grid, .kpi-grid, .split, .flow, #cardView {
       min-width: 0;
     }
-    .row, .actions, .nav-row, header, .chat-head, .input-row {
-      min-width: 0;
-    }
-    .row > *, .actions > *, .nav-row > * {
-      min-width: 0;
-    }
+    .row, .actions, .nav-row, header, .chat-head, .input-row { min-width: 0; }
+    .row > *, .actions > *, .nav-row > * { min-width: 0; }
     .row input, .row textarea, .row select,
     .actions input, .actions textarea, .actions select {
       flex: 1 1 220px !important;
       min-width: min(220px, 100%) !important;
     }
+
+    /* ── Body texture: subtle horizontal rule lines ── */
     body::before {
       content: "";
       position: fixed;
       inset: 0;
       pointer-events: none;
       z-index: 0;
-      background-image:
-        linear-gradient(rgba(34,211,238,.08) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(168,85,247,.08) 1px, transparent 1px) !important;
-      background-size: 72px 72px !important;
-      opacity: .42 !important;
-      mask-image: linear-gradient(to bottom, rgba(0,0,0,.82), rgba(0,0,0,.08)) !important;
+      background-image: linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px) !important;
+      background-size: 100% 40px !important;
+      opacity: 1 !important;
+      mask-image: linear-gradient(to bottom, rgba(0,0,0,.6), rgba(0,0,0,.02)) !important;
     }
-    body::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 0;
-      background:
-        linear-gradient(110deg, transparent 0 36%, rgba(34,211,238,.06) 46%, transparent 56%),
-        linear-gradient(290deg, transparent 0 54%, rgba(168,85,247,.06) 62%, transparent 72%) !important;
-      animation: ztSweep 9s ease-in-out infinite alternate !important;
-      opacity: .75 !important;
-    }
-    .shell, .app, .wrap { position: relative; z-index: 1; animation: ztFadeIn .28s ease both; }
+    body::after { display: none !important; }
+    .shell, .app, .wrap { position: relative; z-index: 1; animation: ztFadeIn .24s ease both; }
+
+    /* ── Sidebar (desktop) ── */
     body.zt-with-shell .shell,
     body.zt-with-shell .wrap,
     body.zt-with-shell .app {
-      margin-left: calc(var(--zt-sidebar-w) + 12px) !important;
+      margin-left: calc(var(--zt-sidebar-w) + 16px) !important;
       margin-top: calc(var(--zt-topbar-h) + 14px) !important;
-      width: calc(100% - var(--zt-sidebar-w) - 24px) !important;
+      width: calc(100% - var(--zt-sidebar-w) - 28px) !important;
     }
     body.zt-with-shell .app {
       height: calc(100vh - var(--zt-topbar-h) - 24px) !important;
     }
     .zt-sidebar {
       position: fixed;
-      left: 12px;
-      top: 12px;
-      bottom: 12px;
+      left: 10px;
+      top: 10px;
+      bottom: 10px;
       width: var(--zt-sidebar-w);
       z-index: 20;
-      border: 1px solid var(--zt-border);
-      border-radius: 22px;
-      background: rgba(7, 12, 22, .72);
-      backdrop-filter: blur(14px);
-      box-shadow: 0 20px 60px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.08);
+      border: 1px solid var(--zt-border-2);
+      border-radius: 12px;
+      background: var(--zt-bg-1);
       display: grid;
       grid-template-rows: auto 1fr auto;
       padding: 14px 10px;
-      gap: 12px;
+      gap: 10px;
     }
     .zt-brand {
-      padding: 6px 10px 10px;
-      border-bottom: 1px solid rgba(255,255,255,.08);
+      padding: 8px 10px 12px;
+      border-bottom: 1px solid var(--zt-border);
     }
     .zt-brand b {
       display: block;
       font-size: 13px;
-      color: #c4b5fd;
-      letter-spacing: .02em;
+      font-weight: 700;
+      color: var(--zt-cyan);
+      letter-spacing: .01em;
+      font-family: var(--zt-mono);
     }
     .zt-brand span {
       display: block;
@@ -138,20 +135,28 @@ CYBER_UI_CSS = """
       font-size: 11px;
       margin-top: 4px;
     }
-    .zt-nav { display: grid; gap: 6px; align-content: start; padding: 0 4px; }
+    .zt-nav { display: grid; gap: 3px; align-content: start; padding: 4px; }
     .zt-nav a {
       display: flex;
       align-items: center;
       min-width: 0;
       gap: 9px;
-      border-radius: 12px !important;
-      padding: 9px 10px !important;
+      border-radius: 7px !important;
+      padding: 9px 11px !important;
       font-size: 13px;
-      border: 1px solid rgba(255,255,255,.1) !important;
-      background: rgba(255,255,255,.03) !important;
+      font-weight: 500;
+      border: 1px solid transparent !important;
+      background: transparent !important;
       box-shadow: none !important;
       transform: none !important;
       text-decoration: none;
+      color: var(--zt-muted) !important;
+      transition: color .15s, background .15s, border-color .15s !important;
+    }
+    .zt-nav a:hover {
+      color: var(--zt-text) !important;
+      background: var(--zt-bg-3) !important;
+      border-color: var(--zt-border) !important;
     }
     .zt-nav a span {
       min-width: 0;
@@ -160,45 +165,45 @@ CYBER_UI_CSS = """
       white-space: nowrap;
     }
     .zt-nav a.zt-active {
-      border-color: rgba(34,211,238,.45) !important;
-      background: rgba(34,211,238,.16) !important;
-      box-shadow: 0 0 24px rgba(34,211,238,.15) !important;
+      border-color: var(--zt-cyan-border) !important;
+      background: var(--zt-cyan-dim) !important;
+      color: var(--zt-cyan) !important;
+      box-shadow: none !important;
     }
     .zt-status {
       margin: 0 4px;
       padding: 10px;
-      border-top: 1px solid rgba(255,255,255,.08);
+      border-top: 1px solid var(--zt-border);
       display: grid;
       gap: 8px;
     }
     .zt-status .zt-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
       display: inline-block;
       margin-right: 6px;
-      box-shadow: 0 0 14px currentColor;
     }
     .zt-status .good { color: var(--zt-green); }
-    .zt-status .warn { color: var(--zt-yellow); }
-    .zt-status .bad { color: var(--zt-red); }
+    .zt-status .warn { color: var(--zt-amber); }
+    .zt-status .bad  { color: var(--zt-red); }
+
+    /* ── Topbar ── */
     .zt-topbar {
       position: fixed;
-      left: calc(var(--zt-sidebar-w) + 24px);
-      right: 12px;
-      top: 12px;
+      left: calc(var(--zt-sidebar-w) + 26px);
+      right: 10px;
+      top: 10px;
       height: var(--zt-topbar-h);
       z-index: 19;
-      border: 1px solid var(--zt-border);
-      border-radius: 16px;
-      background: rgba(7, 12, 22, .72);
-      backdrop-filter: blur(14px);
-      box-shadow: 0 12px 36px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.07);
+      border: 1px solid var(--zt-border-2);
+      border-radius: 10px;
+      background: var(--zt-bg-1);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 8px 12px;
+      padding: 8px 14px;
     }
     .zt-topbar h3 {
       margin: 0;
@@ -206,162 +211,200 @@ CYBER_UI_CSS = """
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      font-size: 15px;
-      color: #e2e8f0;
-      font-weight: 700;
+      font-size: 14px;
+      color: var(--zt-text);
+      font-weight: 600;
     }
     .zt-topbar .meta { display: flex; gap: 8px; flex-wrap: wrap; }
     .zt-chip {
-      border: 1px solid rgba(255,255,255,.14);
+      border: 1px solid var(--zt-border-2);
       border-radius: 999px;
-      padding: 4px 8px;
+      padding: 4px 9px;
       font-size: 11px;
-      color: #cbd5e1;
-      background: rgba(255,255,255,.05);
+      font-weight: 500;
+      color: var(--zt-muted-2);
+      background: var(--zt-bg-3);
       white-space: nowrap;
     }
+
+    /* ── Cards, panels, stats ── */
     header, .chat-head, .card, .panel, .stat, .metric, .status-card {
       overflow-wrap: anywhere;
     }
     header, .chat-head {
-      border: 1px solid var(--zt-border) !important;
+      border: 1px solid var(--zt-border-2) !important;
       border-radius: var(--zt-radius) !important;
-      background: rgba(5, 5, 5, .48) !important;
-      backdrop-filter: blur(20px) !important;
-      box-shadow: 0 22px 90px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.08) !important;
+      background: var(--zt-bg-1) !important;
+      backdrop-filter: none !important;
+      box-shadow: none !important;
       padding: 16px !important;
     }
-    .panel, .stat, .card, .metric, .status-card, .session, .bubble, pre, input, textarea, select, .pill {
-      border: 1px solid var(--zt-border) !important;
+    .panel, .stat, .card, .metric, .status-card, .session, .bubble, pre, input, textarea, select {
+      border: 1px solid var(--zt-border-2) !important;
       border-radius: var(--zt-radius) !important;
-      background: var(--zt-panel) !important;
-      box-shadow: 0 18px 70px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.06) !important;
-    }
-    .panel, header, .chat-head { backdrop-filter: blur(14px) !important; }
-    .card, .stat, .metric, .status-card, .session, .bubble, pre, input, textarea, select, .pill {
+      background: var(--zt-bg-2) !important;
+      box-shadow: none !important;
       backdrop-filter: none !important;
     }
-    .panel::after, .stat::after, .card::after {
-      background:
-        linear-gradient(135deg, rgba(255,255,255,.08), transparent 32%, transparent 76%, rgba(34,211,238,.05)) !important;
-      opacity: .72 !important;
-    }
+    .panel::after, .stat::after, .card::after { display: none !important; }
     .card, .stat, .metric, .status-card, .session, .bubble {
-      transition: transform var(--zt-fast), border-color var(--zt-fast), box-shadow var(--zt-fast), background var(--zt-fast);
+      transition: border-color var(--zt-fast) !important;
     }
     .card:hover, .stat:hover, .metric:hover, .status-card:hover, .session:hover {
-      transform: translateY(-2px) !important;
+      transform: none !important;
       border-color: var(--zt-border-hot) !important;
-      box-shadow: 0 0 0 1px rgba(34,211,238,.12), 0 0 22px rgba(34,211,238,.10), 0 18px 58px rgba(0,0,0,.34) !important;
+      box-shadow: none !important;
     }
     .session.active, .tab.active {
-      border-color: rgba(168,85,247,.62) !important;
-      background: rgba(168,85,247,.13) !important;
-      box-shadow: 0 0 28px rgba(168,85,247,.16), inset 0 1px 0 rgba(255,255,255,.08) !important;
+      border-color: var(--zt-cyan-border) !important;
+      background: var(--zt-cyan-dim) !important;
+      box-shadow: none !important;
     }
+
+    /* ── Typography ── */
     h1, h2, .eyebrow, .label, .id {
       text-shadow: none !important;
       letter-spacing: 0 !important;
     }
     h1 {
-      background: linear-gradient(90deg, #f8fbff, #93c5fd 38%, #c084fc 74%, #f8fbff);
-      -webkit-background-clip: text;
-      color: transparent !important;
-      text-transform: none !important;
-    }
-    h2, .eyebrow, .label, .id { color: #93c5fd !important; }
-    p, .muted, small, .meta { color: var(--zt-muted) !important; }
-    a, button {
-      border: 1px solid rgba(34,211,238,.22) !important;
-      border-radius: 999px !important;
-      background: linear-gradient(135deg, rgba(34,211,238,.16), rgba(168,85,247,.16)) !important;
+      background: none !important;
+      -webkit-background-clip: initial !important;
       color: var(--zt-text) !important;
-      box-shadow: 0 0 20px rgba(34,211,238,.08), inset 0 1px 0 rgba(255,255,255,.08) !important;
-      transition: transform var(--zt-fast), box-shadow var(--zt-fast), border-color var(--zt-fast), filter var(--zt-fast) !important;
+      text-transform: none !important;
+      font-weight: 700 !important;
+    }
+    h2, .eyebrow, .label, .id { color: var(--zt-cyan) !important; }
+    p, .muted, small, .meta { color: var(--zt-muted) !important; }
+
+    /* ── GTRepo section labels: // Section Name ── */
+    .gt-label {
+      font-size: 11px !important;
+      font-weight: 600 !important;
+      letter-spacing: .1em !important;
+      text-transform: uppercase !important;
+      color: var(--zt-muted) !important;
+      margin-bottom: 12px !important;
+      display: block !important;
+    }
+    .gt-label::before {
+      content: '// ';
+      color: var(--zt-cyan) !important;
+      font-family: var(--zt-mono) !important;
+    }
+
+    /* ── Buttons & links ── */
+    a, button {
+      border: 1px solid var(--zt-border-2) !important;
+      border-radius: 7px !important;
+      background: var(--zt-bg-3) !important;
+      color: var(--zt-muted-2) !important;
+      box-shadow: none !important;
+      font-weight: 500 !important;
+      transition: border-color var(--zt-fast), color var(--zt-fast), background var(--zt-fast) !important;
     }
     a:hover, button:hover {
-      transform: translateY(-1px) !important;
-      border-color: rgba(34,211,238,.62) !important;
-      box-shadow: 0 0 20px rgba(34,211,238,.14) !important;
+      transform: none !important;
+      border-color: var(--zt-border-hot) !important;
+      color: var(--zt-cyan) !important;
+      box-shadow: none !important;
     }
-    button.primary, #sendBtn, .actions button:not(.secondary) {
-      background: linear-gradient(135deg, rgba(34,211,238,.94), rgba(168,85,247,.86)) !important;
-      color: #020617 !important;
-      font-weight: 900 !important;
+    button.primary, #sendBtn, .actions button:not(.secondary):not(.danger) {
+      background: var(--zt-cyan) !important;
+      color: #000 !important;
+      border-color: var(--zt-cyan) !important;
+      font-weight: 700 !important;
     }
-    .danger {
-      border-color: rgba(251,113,133,.42) !important;
-      background: rgba(251,113,133,.12) !important;
-      color: #fecdd3 !important;
+    button.primary:hover, #sendBtn:hover {
+      background: #00bde8 !important;
+      border-color: #00bde8 !important;
+      color: #000 !important;
+    }
+    .danger, button.danger {
+      border-color: rgba(255,77,109,.32) !important;
+      background: var(--zt-red-dim) !important;
+      color: var(--zt-red) !important;
+    }
+    .danger:hover, button.danger:hover {
+      border-color: rgba(255,77,109,.6) !important;
+      color: var(--zt-red) !important;
     }
     input:focus, textarea:focus, select:focus {
-      border-color: rgba(34,211,238,.68) !important;
-      box-shadow: 0 0 0 3px rgba(34,211,238,.12), 0 0 30px rgba(34,211,238,.12) !important;
+      border-color: var(--zt-border-hot) !important;
+      box-shadow: 0 0 0 3px var(--zt-cyan-dim) !important;
+      outline: none !important;
     }
-    .badge, .pill, .status-badge {
-      border: 1px solid rgba(255,255,255,.14) !important;
-      border-radius: 999px !important;
-      background: rgba(255,255,255,.06) !important;
+    input, textarea, select {
       color: var(--zt-text) !important;
     }
-    .allow, [data-decision="allow"], .badge.allow {
+
+    /* ── Badges & pills ── */
+    .badge, .pill, .status-badge {
+      border: 1px solid var(--zt-border-2) !important;
+      border-radius: 999px !important;
+      background: var(--zt-bg-3) !important;
+      color: var(--zt-muted-2) !important;
+      box-shadow: none !important;
+    }
+    .allow, [data-decision="allow"], .badge.allow, .pill.allow {
       color: var(--zt-green) !important;
-      border-color: rgba(52,211,153,.45) !important;
-      box-shadow: 0 0 22px rgba(52,211,153,.16) !important;
+      border-color: rgba(34,211,160,.38) !important;
+      background: var(--zt-green-dim) !important;
     }
-    .challenge, [data-decision="challenge"], .badge.challenge {
-      color: var(--zt-yellow) !important;
-      border-color: rgba(251,191,36,.48) !important;
-      box-shadow: 0 0 22px rgba(251,191,36,.16) !important;
+    .challenge, [data-decision="challenge"], .badge.challenge, .pill.challenge {
+      color: var(--zt-amber) !important;
+      border-color: rgba(245,166,35,.38) !important;
+      background: var(--zt-amber-dim) !important;
     }
-    .block, [data-decision="block"], .badge.block, .bad {
+    .block, [data-decision="block"], .badge.block, .pill.block, .bad {
       color: var(--zt-red) !important;
-      border-color: rgba(251,113,133,.5) !important;
-      box-shadow: 0 0 24px rgba(251,113,133,.2) !important;
-      animation: ztPulse 1.8s ease-in-out infinite;
+      border-color: rgba(255,77,109,.38) !important;
+      background: var(--zt-red-dim) !important;
+      animation: none !important;
     }
-    .ready { border-color: rgba(52,211,153,.44) !important; }
-    .warn, .medium { border-color: rgba(251,191,36,.5) !important; }
-    .high, .critical { border-color: rgba(251,113,133,.55) !important; animation: ztPulse 1.8s ease-in-out infinite; }
+    .ready { border-color: rgba(34,211,160,.38) !important; }
+    .warn, .medium { border-color: rgba(245,166,35,.38) !important; }
+    .high, .critical { border-color: rgba(255,77,109,.42) !important; animation: none !important; }
     .value, .metric strong, .metric b {
-      color: #f8fbff !important;
+      color: var(--zt-text) !important;
       font-variant-numeric: tabular-nums;
     }
     pre {
-      color: #dbeafe !important;
+      color: var(--zt-muted-2) !important;
       line-height: 1.55 !important;
       overflow-x: auto !important;
     }
+
+    /* ── Feed entries & live log rows ── */
+    .feed-entry {
+      border-color: var(--zt-border) !important;
+      background: var(--zt-bg-2) !important;
+    }
+    .feed-entry:hover { border-color: var(--zt-border-hot) !important; }
+
+    /* ── Animations ── */
     .zt-trace-step {
       display: block;
       opacity: 0;
       transform: translateY(4px);
-      animation: ztStep .24s ease forwards;
+      animation: ztStep .22s ease forwards;
     }
-    .zt-log-card { animation: ztFadeIn .18s ease both; }
-    .dot { box-shadow: 0 0 18px currentColor !important; }
-    @keyframes ztFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes ztStep { to { opacity: 1; transform: translateY(0); } }
-    @keyframes ztPulse {
-      0%, 100% { box-shadow: 0 0 18px rgba(251,113,133,.13), inset 0 1px 0 rgba(255,255,255,.06) !important; }
-      50% { box-shadow: 0 0 34px rgba(251,113,133,.34), 0 0 56px rgba(251,113,133,.16) !important; }
+    .zt-log-card { animation: ztFadeIn .16s ease both; }
+    .dot { box-shadow: none !important; }
+    @keyframes ztFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes ztStep   { to { opacity: 1; transform: translateY(0); } }
+    @keyframes ztPulse  {
+      0%, 100% { box-shadow: none !important; }
+      50%       { box-shadow: 0 0 28px rgba(255,77,109,.22) !important; }
     }
-    @keyframes ztSweep { to { transform: translate3d(24px, -18px, 0); } }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
     }
 
-    /* ── Tablet + mobile (≤ 980 px): sidebar → bottom tab bar ── */
+    /* ── Mobile: sidebar → bottom tab bar ── */
     @media (max-width: 980px) {
-      :root {
-        --zt-topbar-h: 52px;
-        --zt-mobile-nav-h: 74px;
-      }
+      :root { --zt-topbar-h: 52px; --zt-mobile-nav-h: 72px; }
       html, body { overflow-x: hidden !important; }
-      body.zt-with-shell {
-        padding-bottom: calc(var(--zt-mobile-nav-h) + env(safe-area-inset-bottom, 0px)) !important;
-      }
-      /* All main content areas: clear topbar above, nav bar below */
+      body.zt-with-shell { padding-bottom: calc(var(--zt-mobile-nav-h) + env(safe-area-inset-bottom, 0px)) !important; }
       body.zt-with-shell .shell,
       body.zt-with-shell .wrap,
       body.zt-with-shell .app,
@@ -378,33 +421,27 @@ CYBER_UI_CSS = """
         padding-right: 12px !important;
         padding-bottom: calc(var(--zt-mobile-nav-h) + 16px) !important;
       }
-      /* Fixed-height app containers (e.g. chat) */
       body.zt-with-shell .app {
         height: calc(100svh - var(--zt-topbar-h) - var(--zt-mobile-nav-h) - 20px) !important;
         min-height: unset !important;
-        padding-left: 10px !important;
-        padding-right: 10px !important;
+        padding-inline: 10px !important;
       }
-      /* Topbar: full-width strip at top */
       .zt-topbar {
-        left: 10px !important;
-        right: 10px !important;
+        left: 10px !important; right: 10px !important;
         top: max(10px, env(safe-area-inset-top, 0px)) !important;
         height: var(--zt-topbar-h) !important;
-        border-radius: 14px !important;
+        border-radius: 12px !important;
         padding: 7px 12px !important;
       }
       .zt-topbar h3 { font-size: 13px; }
       .zt-topbar .meta { display: none; }
-      /* Sidebar becomes bottom tab bar */
       .zt-sidebar {
-        left: 10px !important;
-        right: 10px !important;
+        left: 10px !important; right: 10px !important;
         top: auto !important;
         bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
         width: auto !important;
         height: var(--zt-mobile-nav-h) !important;
-        border-radius: 18px !important;
+        border-radius: 14px !important;
         display: block !important;
         padding: 6px !important;
         overflow: hidden !important;
@@ -414,7 +451,7 @@ CYBER_UI_CSS = """
         height: 100%;
         display: flex !important;
         align-items: stretch;
-        gap: 4px;
+        gap: 3px;
         overflow-x: auto;
         overflow-y: hidden;
         padding: 0 2px !important;
@@ -423,80 +460,62 @@ CYBER_UI_CSS = """
         scrollbar-width: none;
       }
       .zt-nav::-webkit-scrollbar { display: none; }
-      /* Tab items: icon stacked above label */
       .zt-nav a {
-        flex: 0 0 64px;
-        min-width: 64px;
+        flex: 0 0 62px;
+        min-width: 62px;
         height: 100%;
         flex-direction: column !important;
         justify-content: center;
         align-items: center;
         gap: 3px !important;
-        padding: 6px 4px !important;
+        padding: 5px 3px !important;
         scroll-snap-align: center;
-        border-radius: 12px !important;
+        border-radius: 10px !important;
         min-height: unset !important;
       }
-      .zt-nav a b { font-size: 18px; line-height: 1; }
-      /* Show tiny labels on tablets so icons are identifiable */
+      .zt-nav a b { font-size: 17px; line-height: 1; }
       .zt-nav a span {
         display: block !important;
         font-size: 9px !important;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        max-width: 58px;
+        max-width: 56px;
         color: var(--zt-muted);
-        letter-spacing: 0;
       }
-      .zt-nav a.zt-active span { color: #67e8f9; }
-      /* Grid: wide layouts collapse */
+      .zt-nav a.zt-active span { color: var(--zt-cyan); }
       .grid, .summary, .wide, .layout, .cc-grid, .soc-grid, .metric-grid, .split, .flow, #cardView {
         grid-template-columns: 1fr !important;
       }
-      .stats, .metrics, .kpi-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-      }
-      .heat {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-      }
-      body::before { background-size: 48px 48px !important; opacity: .28 !important; }
+      .stats, .metrics, .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      .heat { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
     }
 
-    /* ── Phone (≤ 640 px): full single-column, touch-friendly ── */
+    /* ── Phone ── */
     @media (max-width: 640px) {
       body.zt-with-shell .shell,
-      body.zt-with-shell .wrap {
-        padding-left: 10px !important;
-        padding-right: 10px !important;
-      }
+      body.zt-with-shell .wrap { padding-inline: 10px !important; }
       .grid, .stats, .metrics, .summary, .wide, .layout, .cc-grid, .soc-grid,
       .metric-grid, .kpi-grid, .split, .flow, #cardView, .heat {
         grid-template-columns: 1fr !important;
       }
-      /* Tables scroll horizontally without breaking layout */
-      .table-wrap {
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch;
-        max-width: 100%;
-      }
-      header, .chat-head { border-radius: 14px !important; padding: 10px !important; }
+      .table-wrap { overflow-x: auto !important; -webkit-overflow-scrolling: touch; max-width: 100%; }
+      header, .chat-head { border-radius: 10px !important; padding: 12px !important; }
       .panel, .stat, .card, .metric, .status-card, .session, .bubble {
-        border-radius: 14px !important;
+        border-radius: 10px !important;
       }
       .row, .actions, .nav-row { gap: 7px; }
-      /* Larger tap targets for buttons/links — but NOT the tab bar */
-      button, a { min-height: 42px; }
+      button, a { min-height: 40px; }
       .zt-nav a { min-height: unset !important; }
       h1 { font-size: clamp(22px, 9vw, 36px) !important; }
       h2 { font-size: clamp(14px, 5vw, 20px) !important; }
     }
 
-    /* ── Small phones (≤ 420 px): icons only in tab bar ──────── */
+    /* ── Small phones ── */
     @media (max-width: 420px) {
-      :root { --zt-mobile-nav-h: 68px; }
+      :root { --zt-mobile-nav-h: 66px; }
       .zt-sidebar { left: 6px !important; right: 6px !important; padding: 5px !important; }
-      .zt-nav a { flex-basis: 54px; min-width: 54px; }
+      .zt-nav a { flex-basis: 52px; min-width: 52px; }
       .zt-nav a span { display: none !important; }
       body.zt-with-shell .shell,
       body.zt-with-shell .wrap,
@@ -508,7 +527,7 @@ CYBER_UI_CSS = """
       .zt-chip { padding: 3px 6px; font-size: 10px; }
     }
 
-    /* ── Ultrawide (≥ 1440 px): cap content width ────────────── */
+    /* ── Ultrawide ── */
     @media (min-width: 1440px) {
       body.zt-with-shell .shell,
       body.zt-with-shell .wrap,
@@ -518,18 +537,134 @@ CYBER_UI_CSS = """
       }
     }
 
-    /* Auth pages: suppress sidebar and topbar */
+    /* Auth pages: no sidebar/topbar */
     body.no-shell #ztSidebar,
     body.no-shell #ztTopbar,
     body.no-shell .zt-sidebar,
     body.no-shell .zt-topbar { display: none !important; }
     body.no-shell { padding-bottom: 0 !important; }
+
+    /* ── Shared component contracts ── */
+    .zt-page-wrapper { max-width: 1440px; }
+    .zt-section-card, .zt-metric-card {
+      border: 1px solid var(--zt-border-2) !important;
+      border-radius: 10px !important;
+      background: var(--zt-bg-2) !important;
+    }
+    .zt-section-card-highlight {
+      border-color: var(--zt-cyan-border) !important;
+      background: var(--zt-cyan-dim) !important;
+    }
+    .zt-section-card-warning {
+      border-color: rgba(245,166,35,.35) !important;
+      background: var(--zt-amber-dim) !important;
+    }
+    .zt-btn-primary {
+      border-color: var(--zt-cyan) !important;
+      background: var(--zt-cyan) !important;
+      color: #000 !important;
+      font-weight: 700 !important;
+    }
+    .zt-btn-secondary {
+      border-color: var(--zt-border-2) !important;
+      background: var(--zt-bg-3) !important;
+      color: var(--zt-muted-2) !important;
+    }
+    .zt-btn-ghost {
+      border-color: transparent !important;
+      background: transparent !important;
+      color: var(--zt-muted) !important;
+    }
+    .zt-btn-danger {
+      border-color: rgba(255,77,109,.32) !important;
+      background: var(--zt-red-dim) !important;
+      color: var(--zt-red) !important;
+    }
+    .zt-input {
+      border: 1px solid var(--zt-border-2) !important;
+      border-radius: 8px !important;
+      background: var(--zt-bg-3) !important;
+      color: var(--zt-text) !important;
+    }
+    .zt-tab {
+      border: 1px solid var(--zt-border-2) !important;
+      border-radius: 8px !important;
+      background: var(--zt-bg-3) !important;
+      color: var(--zt-muted-2) !important;
+    }
+    .zt-tab-active, .tab.active {
+      border-color: var(--zt-cyan-border) !important;
+      background: var(--zt-cyan-dim) !important;
+      color: var(--zt-cyan) !important;
+      box-shadow: none !important;
+    }
+    .zt-table {
+      width: 100%;
+      border-collapse: collapse;
+      color: var(--zt-muted-2);
+    }
+    .zt-table th, .zt-table td {
+      border-bottom: 1px solid var(--zt-border);
+      padding: 10px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .zt-table th {
+      color: var(--zt-cyan);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .zt-empty-state {
+      border: 1px dashed var(--zt-border-2) !important;
+      border-radius: 10px !important;
+      background: var(--zt-bg-2) !important;
+      color: var(--zt-muted) !important;
+    }
 """
 
 
 CYBER_UI_JS = """
   <script>
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gateway: {
+              bg: "#08080a",
+              panel: "rgba(255,255,255,.05)",
+              cyan: "#00d4ff"
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
     (() => {
+      const UI = {
+        page: "zt-page-wrapper mx-auto w-full max-w-screen-2xl px-4 pb-10 text-slate-100 sm:px-6 lg:px-8",
+        sectionCard: "zt-section-card rounded-xl border border-white/10 bg-white/5 text-slate-100 shadow-none",
+        metricCard: "zt-metric-card rounded-xl border border-white/10 bg-white/5 p-4 text-slate-100",
+        sidebarItem: "rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 transition hover:bg-white/10",
+        sidebarItemActive: "zt-active border-cyan-400/40 bg-cyan-400/10 text-slate-100",
+        buttonPrimary: "zt-btn-primary inline-flex items-center justify-center rounded-lg border border-cyan-400 px-3 py-2 text-sm font-semibold text-black",
+        buttonSecondary: "zt-btn-secondary inline-flex items-center justify-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10",
+        buttonGhost: "zt-btn-ghost inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-white/10",
+        buttonDanger: "zt-btn-danger inline-flex items-center justify-center rounded-lg border border-rose-400/30 px-3 py-2 text-sm text-rose-300",
+        input: "zt-input rounded-lg border border-white/10 bg-slate-900/60 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:border-cyan-400/60 focus:outline-none",
+        tab: "zt-tab rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10",
+        badge: "inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-300",
+        table: "zt-table w-full border-collapse text-sm text-slate-300",
+        empty: "zt-empty-state rounded-xl border border-dashed border-white/15 bg-white/5 p-4 text-slate-400"
+      };
+      const addClasses = (node, classText) => {
+        if (!node || !classText) return;
+        node.classList.add(...classText.split(/\\s+/).filter(Boolean));
+      };
       const numericIds = new Set([
         "modelsValue", "controlsValue", "rulesValue", "logsValue", "eventsValue",
         "totalRequests", "blockedRequests", "challengedRequests", "blockRate",
@@ -542,7 +677,6 @@ CYBER_UI_JS = """
         if (text.includes("allow") || text.includes("protected") || text.includes("ready")) return "allow";
         return "";
       };
-      /* Decode JWT payload (public base64 claims — not secret) */
       const parseJwt = (token) => {
         try {
           const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
@@ -555,23 +689,15 @@ CYBER_UI_JS = """
       };
       const isAdmin = () => (getTokenPayload().scopes || []).includes("admin");
 
-      /* All nav items — adminOnly=true hides from regular users */
       const NAV_ITEMS_ALL = [
-        { href: "/dashboard",              label: "Dashboard",  icon: "⌂",  adminOnly: false },
-        { href: "/chat",                   label: "Chat",       icon: "◉",  adminOnly: false },
-        { href: "/my-models",              label: "My Models",  icon: "◎",  adminOnly: false },
-        { href: "/my-devices",             label: "Devices",    icon: "◬",  adminOnly: false },
-        { href: "/account-security",       label: "Account",    icon: "◐",  adminOnly: false },
-        { href: "/dashboard/soc",          label: "SOC",        icon: "◈",  adminOnly: false },
-        { href: "/models-manager",         label: "Registry",   icon: "▦",  adminOnly: true  },
-        { href: "/dashboard/firewall",     label: "Firewall",   icon: "◍",  adminOnly: true  },
-        { href: "/dashboard/models/compare", label: "Compare",  icon: "◑",  adminOnly: false },
-        { href: "/dashboard/security",     label: "Tests",      icon: "◌",  adminOnly: true  },
-        { href: "/dashboard/demo",         label: "Demo",       icon: "◇",  adminOnly: false },
-        { href: "/dashboard/evaluation",   label: "Evaluate",   icon: "▧",  adminOnly: true  },
-        { href: "/dashboard/testing",      label: "Self-Test",  icon: "◫",  adminOnly: true  },
-        { href: "/gt-mode",                label: "GT Mode",    icon: "◆",  adminOnly: true, gt: true },
-        { href: "/control-center",         label: "Control",    icon: "⚙",  adminOnly: true  },
+        { href: "/dashboard",                  label: "Dashboard",           icon: "⌂", adminOnly: false },
+        { href: "/dashboard/getting-started",  label: "Guide",               icon: "?", adminOnly: false },
+        { href: "/dashboard/chat",             label: "Secure Chat",         icon: "◉", adminOnly: false },
+        { href: "/dashboard/models",           label: "Models",              icon: "▦", adminOnly: false },
+        { href: "/dashboard/security-monitor", label: "Monitor",             icon: "◈", adminOnly: false },
+        { href: "/dashboard/policy",           label: "Policy",              icon: "⚙", adminOnly: false },
+        { href: "/dashboard/research",         label: "Research",            icon: "▧", adminOnly: false },
+        { href: "/dashboard/account",          label: "Account",             icon: "◐", adminOnly: false },
       ];
       const NAV_ITEMS = NAV_ITEMS_ALL.filter(item => !item.adminOnly || isAdmin());
       const decorateDecision = (node) => {
@@ -602,117 +728,97 @@ CYBER_UI_JS = """
           node.textContent = `${target % 1 ? next.toFixed(2) : Math.round(next)}${suffix}`;
           if (t < 1) requestAnimationFrame(tick);
           else {
-            node.textContent = raw;
+            node.textContent = `${target}${suffix}`;
             node.dataset.currentValue = String(target);
             node.dataset.ztLastValue = raw;
-            node.dataset.ztAnimating = "0";
+            delete node.dataset.ztAnimating;
           }
         };
         requestAnimationFrame(tick);
       };
-      const revealTrace = (node) => {
-        if (!node || node.dataset.ztRevealing === "1") return;
-        if (node.querySelector && node.querySelector(".zt-trace-step")) return;
-        const text = node.textContent || "";
-        if (!text || text.length > 3500 || text.includes("<span")) return;
-        node.dataset.ztRevealing = "1";
-        const lines = text.split("\\n").slice(0, 80);
-        node.innerHTML = lines.map((line, index) => {
-          const safe = line.replace(/[&<>]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]));
-          return `<span class="zt-trace-step" style="animation-delay:${Math.min(index * 12, 120)}ms">${safe || "&nbsp;"}</span>`;
-        }).join("");
-        setTimeout(() => { node.dataset.ztRevealing = "0"; }, 320);
-      };
-      const activeHref = () => {
-        const p = window.location.pathname || "/";
-        return p.length > 1 ? p.replace(/\/$/, "") : p;
-      };
-      const shouldInjectShell = () => {
-        if (document.body && document.body.classList.contains("no-shell")) return false;
-        return !["/login", "/signup"].includes(activeHref());
-      };
-      const topbarTitle = () => {
-        const h1 = document.querySelector("h1");
-        return (h1 && h1.textContent && h1.textContent.trim()) || "Zero Trust AI Gateway";
-      };
-      const injectShell = () => {
-        if (!shouldInjectShell()) return;
-        if (document.getElementById("ztSidebar")) return;
+
+      function injectShell() {
+        if (document.body.classList.contains("no-shell")) return;
         document.body.classList.add("zt-with-shell");
+        const currentPath = location.pathname;
+
+        /* Sidebar */
         const sidebar = document.createElement("aside");
         sidebar.id = "ztSidebar";
         sidebar.className = "zt-sidebar";
-        const nav = NAV_ITEMS.map((item) => {
-          const isActive = activeHref() === item.href;
-          const gtStyle = item.gt ? `style="margin-top:8px;border-color:rgba(124,58,237,0.55)!important;background:rgba(124,58,237,0.12)!important;box-shadow:0 0 18px rgba(124,58,237,0.18)!important;"` : "";
-          const gtIconStyle = item.gt ? `style="color:#a78bfa;text-shadow:0 0 10px rgba(124,58,237,0.9);"` : "";
-          return `<a href="${item.href}" class="${isActive ? "zt-active" : ""}" ${gtStyle}><b ${gtIconStyle}>${item.icon}</b><span>${item.label}</span></a>`;
-        }).join("");
         sidebar.innerHTML = `
-          <div class="zt-brand"><b>Zero Trust AI</b><span>Adaptive Firewall Platform</span></div>
-          <nav class="zt-nav">${nav}</nav>
-          <div class="zt-status">
-            <div class="zt-chip"><span class="zt-dot good"></span><span id="ztSysHealth">System online</span></div>
-            <div class="zt-chip"><span class="zt-dot warn"></span><span id="ztThreatState">Threats: --</span></div>
+          <div class="zt-brand">
+            <b>ZT // Gateway</b>
+            <span>Zero Trust AI Gateway</span>
+          </div>
+          <nav class="zt-nav" id="ztNav">
+            ${NAV_ITEMS.map(item => `
+              <a href="${item.href}" class="${item.href === currentPath || (item.href !== '/dashboard' && currentPath.startsWith(item.href)) ? 'zt-active' : ''}">
+                <b>${item.icon}</b><span>${item.label}</span>
+              </a>`).join("")}
+          </nav>
+          <div class="zt-status" id="ztStatus">
+            <div style="font-size:11px;color:var(--zt-muted)">
+              <span class="zt-dot" style="background:var(--zt-green);box-shadow:0 0 8px var(--zt-green)"></span>Gateway online
+            </div>
           </div>`;
-        document.body.appendChild(sidebar);
+        document.body.prepend(sidebar);
 
-        const top = document.createElement("section");
-        top.id = "ztTopbar";
-        top.className = "zt-topbar";
-        top.innerHTML = `<h3>${topbarTitle()}</h3><div class="meta"><span class="zt-chip">Secure Mode ON</span><span class="zt-chip" id="ztReqChip">Req: --</span><span class="zt-chip" id="ztBlockChip">Blocked: --</span></div>`;
-        document.body.appendChild(top);
-      };
-      const refreshTopbarStats = async () => {
+        /* Topbar */
+        const topbar = document.createElement("div");
+        topbar.id = "ztTopbar";
+        topbar.className = "zt-topbar";
+        const pageLabel = NAV_ITEMS.find(i => i.href === currentPath || (i.href !== "/dashboard" && currentPath.startsWith(i.href)))?.label || "Zero Trust AI Gateway";
+        topbar.innerHTML = `
+          <h3 id="ztPageTitle">${pageLabel}</h3>
+          <div class="meta" id="ztTopMeta">
+            <span class="zt-chip" id="ztUserChip">...</span>
+            <span class="zt-chip allow" id="ztZtaChip">Protected</span>
+            <a href="/login" id="ztLogoutLink" style="padding:5px 10px;font-size:12px;border-radius:6px">Logout</a>
+          </div>`;
+        document.body.prepend(topbar);
+
+        /* Populate user chip & logout */
         const token = sessionStorage.getItem("zta_token");
-        if (!token) return;
-        try {
-          const res = await fetch("/api/v1/monitoring/metrics", { headers: { Authorization: `Bearer ${token}` } });
-          if (!res.ok) return;
-          const data = await res.json();
-          const req = document.getElementById("ztReqChip");
-          const blk = document.getElementById("ztBlockChip");
-          const threat = document.getElementById("ztThreatState");
-          if (req) req.textContent = `Req: ${data.total_requests ?? 0}`;
-          if (blk) blk.textContent = `Blocked: ${data.blocked_requests ?? 0}`;
-          if (threat) {
-            const level = Number(data.block_rate || 0) >= 40 ? "High" : Number(data.block_rate || 0) >= 15 ? "Medium" : "Low";
-            threat.textContent = `Threats: ${level}`;
-          }
-        } catch {}
-      };
-      const decorate = (root = document) => {
-        if (!root.querySelectorAll) return;
-        document.querySelectorAll(".card").forEach((node) => node.classList.add("glass-card"));
-        document.querySelectorAll("button, a").forEach((node) => node.classList.add("glow-button"));
-        document.querySelectorAll(".badge, .pill").forEach(decorateDecision);
-        document.querySelectorAll("#decisionTrace, #simResult").forEach(revealTrace);
-        document.querySelectorAll("#logs .card").forEach((node, index) => {
-          node.classList.add("zt-log-card");
-          node.style.animationDelay = `${Math.min(index * 22, 220)}ms`;
-        });
-      };
-      const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-          const target = mutation.target;
-          if (target.nodeType !== 1) continue;
-          if (target.id && numericIds.has(target.id)) animateNumber(target, target.textContent);
-          if (target.matches && (target.matches(".badge, .pill") || target.id === "decisionPill" || target.id === "ztaStatus")) decorateDecision(target);
-          if (target.id === "decisionTrace" || target.id === "simResult") revealTrace(target);
-          mutation.addedNodes.forEach((node) => {
-            if (node.nodeType !== 1) return;
-            if (node.matches && node.matches(".badge, .pill")) decorateDecision(node);
-            if (node.querySelectorAll) node.querySelectorAll(".badge, .pill").forEach(decorateDecision);
-          });
+        if (token) {
+          const payload = parseJwt(token);
+          if (payload.sub) document.getElementById("ztUserChip").textContent = payload.sub;
         }
-      });
-      window.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("ztLogoutLink")?.addEventListener("click", (e) => {
+          e.preventDefault();
+          sessionStorage.removeItem("zta_token");
+          location.href = "/login";
+        });
+
+        /* ZTA status */
+        const ztaChip = document.getElementById("ztZtaChip");
+        if (token) {
+          fetch("/api/v1/monitoring/zta/status", { headers: { Authorization: `Bearer ${token}` } })
+            .then(r => r.json())
+            .then(d => {
+              if (ztaChip) {
+                ztaChip.textContent = d.enabled ? "Protected" : "Unprotected";
+                ztaChip.className = `zt-chip ${d.enabled ? "allow" : "block"}`;
+              }
+            }).catch(() => {});
+        }
+
+        /* Decorate decisions & animate numbers */
+        const observer = new MutationObserver(() => {
+          document.querySelectorAll("[data-decision]").forEach(decorateDecision);
+          numericIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) animateNumber(el, el.textContent);
+          });
+        });
+        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", injectShell);
+      } else {
         injectShell();
-        document.body.classList.add("zt-ready");
-        decorate();
-        refreshTopbarStats();
-        observer.observe(document.body, { childList: true, subtree: true });
-      });
+      }
     })();
   </script>
 """

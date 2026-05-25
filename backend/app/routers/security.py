@@ -59,6 +59,16 @@ TEST_SUITE_PROMPTS = [
 ]
 
 
+def _can_use_model(model: Model | None, current_user: TokenData) -> bool:
+    if model is None:
+        return False
+    return bool(
+        "admin" in (current_user.scopes or [])
+        or model.visibility == "global"
+        or model.owner_user_id == current_user.user_id
+    )
+
+
 @router.get("/control-plane")
 async def control_plane(
     db: AsyncSession = Depends(get_db),
@@ -167,6 +177,8 @@ async def simulate_policy(
         sensitivity_score = 0.5
         model_sensitivity = "medium"
         provider = None
+    elif not _can_use_model(model, current_user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only simulate policy for global models or models owned by your account")
     else:
         model_risk_score = await get_model_risk_score(db=db, model_id=model_id)
         sensitivity_score = await get_model_sensitivity_score(db=db, model_id=model_id)
@@ -244,6 +256,9 @@ async def run_security_test_suite(
     current_user: TokenData = Depends(require_active_user),
 ):
     try:
+        model = (await db.execute(select(Model).where(Model.id == model_id))).scalar_one_or_none()
+        if not _can_use_model(model, current_user):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only run tests on global models or models owned by your account")
         results = []
         true_positive = false_positive = true_negative = false_negative = 0
 
@@ -297,6 +312,8 @@ async def run_security_test_suite(
             },
             "results": results,
         }
+    except HTTPException:
+        raise
     except Exception:
         from app.core.system_state import get_fallback_state
         state = get_fallback_state()
@@ -320,6 +337,16 @@ async def compare_models(
     current_user: TokenData = Depends(require_active_user),
 ):
     try:
+        rows = (
+            await db.execute(select(Model).where(Model.id.in_(payload.model_ids)))
+        ).scalars().all()
+        by_id = {int(model.id): model for model in rows}
+        inaccessible = [model_id for model_id in payload.model_ids if not _can_use_model(by_id.get(model_id), current_user)]
+        if inaccessible:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You can only compare global models or models owned by your account. Inaccessible model IDs: {inaccessible}",
+            )
         comparison_group = f"cmp-{hash_prompt('|'.join(map(str, payload.model_ids)) + payload.prompt)[:16]}"
         results = []
 
@@ -371,6 +398,8 @@ async def compare_models(
             "prompt_hash": hash_prompt(payload.prompt),
             "results": results,
         }
+    except HTTPException:
+        raise
     except Exception:
         from app.core.system_state import get_fallback_state
         state = get_fallback_state()

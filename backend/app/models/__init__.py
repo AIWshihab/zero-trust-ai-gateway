@@ -10,6 +10,8 @@ from app.models.security import SecurityControl, DetectionRule
 from app.models.device import Device
 from app.models.user_session import UserSession
 from app.models.device_event import DeviceEvent
+from app.models.chat import ChatSession, ChatMessage
+from app.models.extension import ExtensionPairingToken
 
 __all__ = [
     "User",
@@ -25,4 +27,7 @@ __all__ = [
     "Device",
     "UserSession",
     "DeviceEvent",
+    "ChatSession",
+    "ChatMessage",
+    "ExtensionPairingToken",
 ]

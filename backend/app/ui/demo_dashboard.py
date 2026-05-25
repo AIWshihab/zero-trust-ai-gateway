@@ -66,8 +66,8 @@ DEMO_DASHBOARD_HTML = """
     <button id="exportBtn">Export session</button>
   </section>
   <div>
-    <div class="muted">Research-grade evaluation layer</div>
-    <h1 style="margin:0">AI Firewall Demonstration</h1>
+    <div class="muted">Scenario-driven replay using real gateway telemetry</div>
+    <h1 style="margin:0">Scenario Replay</h1>
   </div>
 
   <section class="grid">
