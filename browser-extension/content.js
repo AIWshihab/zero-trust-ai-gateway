@@ -7,7 +7,6 @@ const B = globalThis.browser ?? globalThis.chrome;
 // ── AI site detection ────────────────────────────────────────────────────────
 const AI_SITE_PATTERNS = [
   /chat\.openai\.com/i, /chatgpt\.com/i,
-  /claude\.ai/i,
   /gemini\.google\.com/i,
   /copilot\.microsoft\.com/i,
   /perplexity\.ai/i,

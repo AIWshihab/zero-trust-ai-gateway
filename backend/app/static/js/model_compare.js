@@ -34,7 +34,7 @@ const api = "/api/v1";
   /* ---- mock data ---- */
   const MODEL_PROFILES = [
     { name:"GPT-4o-mini",     baseRisk:0.14 },
-    { name:"Claude-3-Haiku",  baseRisk:0.21 },
+    { name:"Haiku-3",          baseRisk:0.21 },
     { name:"Llama-3-8B",      baseRisk:0.44 },
     { name:"Mistral-7B",      baseRisk:0.37 },
     { name:"Gemma-2B",        baseRisk:0.58 },
