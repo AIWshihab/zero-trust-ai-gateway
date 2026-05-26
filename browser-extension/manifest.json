@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
   "name": "Zero Trust AI Gateway",
-  "description": "Send browser prompts through the Zero Trust AI Gateway for policy decisions and protected inference.",
-  "version": "0.1.0",
+  "description": "AI request enforcement: every browser prompt screened by the Zero Trust policy engine before reaching any model.",
+  "version": "1.1.0",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "zt-ai-gateway@zerotrust",
+      "strict_min_version": "128.0"
+    }
+  },
   "action": {
     "default_title": "Zero Trust AI Gateway",
     "default_popup": "popup.html"
@@ -13,14 +19,22 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
+      "js": ["interceptor.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["<all_urls>"],
       "js": ["content.js"],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ],
   "permissions": ["storage", "activeTab", "tabs"],
   "host_permissions": [
     "http://localhost:8000/*",
+    "http://localhost/*",
     "http://127.0.0.1:8000/*",
+    "http://127.0.0.1/*",
     "https://*/*"
   ]
 }

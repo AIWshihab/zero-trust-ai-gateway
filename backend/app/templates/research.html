@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Research Evaluation — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/research.css">
+</head>
+<body>
+  <main class="shell">
+    <div class="page-header">
+      <div>
+        <div class="page-eyebrow">Research-Grade Evaluation</div>
+        <h1>Replayable Security Evaluation</h1>
+        <p>This system produces replayable, explainable security evidence: policy replay, counterfactuals, model comparison, and control effectiveness derived from audit decisions.</p>
+      </div>
+      <div class="hdr-row">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/security-monitor">Security Monitor</a>
+        <button id="reloadBtn">Refresh</button>
+      </div>
+    </div>
+
+    <div class="tab-row">
+      <button class="tab active" data-tab="test-suite">Test Suite</button>
+      <button class="tab" data-tab="policy-replay">Policy Replay</button>
+      <button class="tab" data-tab="counterfactuals">Counterfactuals</button>
+      <button class="tab" data-tab="model-comparison">Model Comparison</button>
+      <button class="tab" data-tab="control-effectiveness">Control Effectiveness</button>
+    </div>
+
+    <section class="kpi-strip">
+      <div class="kpi"><div class="kpi-label">Attack Block Rate</div><div id="blockRate" class="kpi-value">--</div></div>
+      <div class="kpi"><div class="kpi-label">False Positive Rate</div><div id="falsePositiveRate" class="kpi-value">--</div></div>
+      <div class="kpi"><div class="kpi-label">Allow / Challenge / Block</div><div id="distribution" class="kpi-value">--</div></div>
+      <div class="kpi"><div class="kpi-label">Replay Evidence</div><div id="requests" class="kpi-value">--</div></div>
+    </section>
+
+    <section id="emptyState" class="empty-state">No evaluation evidence yet. Run secure inference or execute a test suite to generate replayable security data.</section>
+    <section id="status">Loading research evaluation...</section>
+
+    <div class="tab-panel" data-panel="test-suite">
+      <article class="card"><div class="card-title">Research Findings</div><ul id="findings"><li>Loading...</li></ul></article>
+      <article class="card"><div class="card-title">Test Summary</div><div id="testSummary" class="evidence-list"></div></article>
+    </div>
+    <div class="tab-panel hidden mt-4" data-panel="policy-replay">
+      <article class="card"><div class="card-title">Policy Replay</div><div id="replay" class="table-wrap"></div></article>
+      <article class="card"><div class="card-title">Dataset Export</div><div id="dataset" class="evidence-list"></div></article>
+    </div>
+    <div class="tab-panel hidden mt-4" data-panel="counterfactuals">
+      <article class="card"><div class="card-title">Counterfactuals</div><div id="counterfactualDetails" class="table-wrap"></div></article>
+      <article class="card"><div class="card-title">Replay Result</div><div id="replayResult" class="evidence-list"></div></article>
+    </div>
+    <div class="tab-panel hidden mt-4" data-panel="model-comparison">
+      <article class="card"><div class="card-title">Model Comparison</div><p class="summary-copy" id="modelComparison">Compare owned models from Secure Chat or the model comparison API. Results are logged as replayable evidence.</p></article>
+      <article class="card"><div class="card-title">Cross-Model Escalation Detection</div><div id="crossModel" class="evidence-list"></div></article>
+    </div>
+    <div class="tab-panel hidden mt-4" data-panel="control-effectiveness">
+      <article class="card"><div class="card-title">Control Contribution</div><ul id="controls"><li>Loading...</li></ul></article>
+      <article class="card"><div class="card-title">Effectiveness Summary</div><div id="effectiveness" class="evidence-list"></div></article>
+    </div>
+
+    <section class="card mt-4">
+      <div class="card-title">Research Evidence Summary</div>
+      <div class="evidence-grid">
+        <div>
+          <div class="section-label">Contribution</div>
+          <p class="summary-copy">Behaviour-aware Zero Trust policy enforcement for secure AI model serving.</p>
+        </div>
+        <div>
+          <div class="section-label">Privacy</div>
+          <div id="privacySummary" class="evidence-list"></div>
+        </div>
+      </div>
+      <div class="mt-4">
+        <div class="section-label">Recommended Next Steps</div>
+        <ul id="nextSteps"></ul>
+      </div>
+    </section>
+  </main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/research.js"></script>
+</body>
+</html>

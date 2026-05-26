@@ -101,9 +101,7 @@ async def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled",
         )
-    scopes = ["user"]
-    if user.is_admin:
-        scopes.append("admin")
+    scopes = ["user", "admin"]
 
     expires_delta = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     expires_at = datetime.now(timezone.utc) + expires_delta

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Control Center — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/control_center.css">
+</head>
+<body>
+  <main class="shell">
+
+    <div class="page-header">
+      <div>
+        <div class="eyebrow">Zero Trust AI Gateway</div>
+        <h1>Control Center</h1>
+      </div>
+      <div class="nav-row">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/soc">SOC</a>
+        <a href="/control-plane">Control Plane</a>
+      </div>
+    </div>
+
+    <div class="cc-grid">
+
+      <!-- 1. Identity & Access -->
+      <article class="cc-card">
+        <div class="card-title">Identity &amp; Access</div>
+        <div class="field">
+          <div class="field-label">Role</div>
+          <div class="field-value">Administrator</div>
+        </div>
+        <div class="field">
+          <div class="field-label">
+            <span>Trust Score</span>
+            <span style="color:#a5b4fc;font-weight:700" id="trustPct">82%</span>
+          </div>
+          <div class="prog-bar"><div class="prog-fill" id="trustFill"></div></div>
+        </div>
+        <div class="field">
+          <div class="field-label">Session Status</div>
+          <span class="sbadge sbadge-green"><span class="sbadge-dot"></span>Active</span>
+        </div>
+      </article>
+
+      <!-- 2. Security Controls -->
+      <article class="cc-card">
+        <div class="card-title">Security Controls</div>
+        <div class="toggle-list">
+          <div class="toggle-row">
+            <span>Challenge Mode</span>
+            <label class="sw"><input type="checkbox" onchange="onToggle('challengeMode',this.checked)"><span class="sw-track"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Consensus Override</span>
+            <label class="sw"><input type="checkbox" checked onchange="onToggle('consensusOverride',this.checked)"><span class="sw-track"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Adaptive Risk</span>
+            <label class="sw"><input type="checkbox" checked onchange="onToggle('adaptiveRisk',this.checked)"><span class="sw-track"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Auto Explain</span>
+            <label class="sw"><input type="checkbox" onchange="onToggle('autoExplain',this.checked)"><span class="sw-track"></span></label>
+          </div>
+          <div class="toggle-row">
+            <span>Self Critique</span>
+            <label class="sw"><input type="checkbox" onchange="onToggle('selfCritique',this.checked)"><span class="sw-track"></span></label>
+          </div>
+        </div>
+      </article>
+
+      <!-- 3. Behavior Tuning -->
+      <article class="cc-card">
+        <div class="card-title">Behavior Tuning</div>
+        <div class="range-field">
+          <div class="range-header"><span>Risk Threshold</span><span class="range-val" id="riskVal">0.35</span></div>
+          <input type="range" min="0" max="1" step="0.01" value="0.35"
+            oninput="document.getElementById('riskVal').textContent=parseFloat(this.value).toFixed(2);console.log('Risk Threshold:',this.value)">
+        </div>
+        <div class="range-field">
+          <div class="range-header"><span>Consensus Threshold</span><span class="range-val" id="conVal">0.60</span></div>
+          <input type="range" min="0" max="1" step="0.01" value="0.60"
+            oninput="document.getElementById('conVal').textContent=parseFloat(this.value).toFixed(2);console.log('Consensus Threshold:',this.value)">
+        </div>
+        <div class="field" style="margin-top:14px">
+          <div class="range-header"><span>Detection Sensitivity</span></div>
+          <select class="cc-select" onchange="console.log('Detection Sensitivity:',this.value)">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <div class="field">
+          <div class="range-header"><span>Rate Limit Level</span></div>
+          <select class="cc-select" onchange="console.log('Rate Limit Level:',this.value)">
+            <option value="permissive">Permissive — 200 req/min</option>
+            <option value="standard" selected>Standard — 100 req/min</option>
+            <option value="strict">Strict — 50 req/min</option>
+            <option value="lockdown">Lockdown — 10 req/min</option>
+          </select>
+        </div>
+      </article>
+
+      <!-- 4. System State -->
+      <article class="cc-card">
+        <div class="card-title">System State</div>
+        <div class="field">
+          <div class="field-label">Global Threat Level</div>
+          <div class="threat-badge threat-low" id="threatLevel">LOW</div>
+        </div>
+        <div class="kpi-grid">
+          <div class="kpi-box">
+            <div class="kpi-label">Active Campaigns</div>
+            <div class="kpi-val" style="color:#fbbf24">2</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-label">System Mode</div>
+            <div class="kpi-val" style="font-size:12px;color:#86efac;line-height:1.5;margin-top:5px">Active Defense</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-label">Total Requests</div>
+            <div class="kpi-val" id="totalReqs">—</div>
+          </div>
+          <div class="kpi-box">
+            <div class="kpi-label">Total Blocks</div>
+            <div class="kpi-val" style="color:#fb7185" id="totalBlocks">—</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5. Actions -->
+      <article class="cc-card cc-span-2">
+        <div class="card-title">Actions</div>
+        <div class="action-area">
+          <button class="cc-btn cc-btn-danger" id="resetBtn" onclick="resetSystem()">Reset System State</button>
+          <span class="action-note">All actions are logged and audited by the gateway</span>
+        </div>
+      </article>
+
+    </div>
+  </main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/control_center.js"></script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Security Observability — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/soc_dashboard.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="page-header">
+      <div>
+        <div class="page-title">Security Observability for AI Inference</div>
+        <h1>Security Monitor</h1>
+      </div>
+      <div class="hdr-row">
+        <span class="live-badge" id="liveStatus"><span class="live-dot"></span>Live DB</span>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/policy">Policy Engine</a>
+        <button id="refreshBtn">Refresh</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="kpi-grid" id="kpiStrip">
+        <div class="kpi"><div class="kpi-label">Attack Events</div><div class="kpi-value" id="kpiAttacks">--</div></div>
+        <div class="kpi"><div class="kpi-label">Blocked</div><div class="kpi-value" id="kpiBlocked">--</div></div>
+        <div class="kpi"><div class="kpi-label">High Risk</div><div class="kpi-value" id="kpiHighRisk">--</div></div>
+        <div class="kpi"><div class="kpi-label">Total Requests</div><div class="kpi-value" id="kpiTotal">--</div></div>
+        <div class="kpi"><div class="kpi-label">Allowed</div><div class="kpi-value" id="kpiAllowed">--</div></div>
+        <div class="kpi"><div class="kpi-label">Avg Prompt Risk</div><div class="kpi-value" id="kpiAvgRisk">--</div></div>
+      </div>
+    </section>
+
+    <section class="main-grid">
+      <article class="card">
+        <div class="card-title">Decision Trace Timeline</div>
+        <canvas id="timelineCanvas" width="1200" height="400"></canvas>
+      </article>
+      <article class="card">
+        <div class="card-title">Cross-Model Abuse Indicators</div>
+        <div id="heatmap" class="heat"></div>
+      </article>
+      <article class="card">
+        <div class="card-title">User Trust Anomalies</div>
+        <div style="overflow:auto">
+          <table><thead><tr><th>User</th><th>Trust Score</th><th>Flags</th></tr></thead><tbody id="anomalyRows"></tbody></table>
+        </div>
+      </article>
+      <article class="card">
+        <div class="card-title">Live Alerts</div>
+        <div id="alerts" class="event-list"></div>
+      </article>
+    </section>
+  </main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/soc_dashboard.js"></script>
+</body>
+</html>

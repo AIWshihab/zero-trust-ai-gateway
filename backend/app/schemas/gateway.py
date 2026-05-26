@@ -69,6 +69,19 @@ class FirewallClientOut(BaseModel):
     api_key: Optional[str] = None
 
 
+class BrowserCheckRequest(BaseModel):
+    target_url: str = Field(..., max_length=2048)
+    extracted_prompt: Optional[str] = Field(default=None, max_length=4096)
+    source: str = Field(default="browser_intercept", max_length=64)
+
+
+class BrowserCheckResponse(BaseModel):
+    decision: str  # allow / challenge / block
+    reason: Optional[str] = None
+    risk_score: float = Field(default=0.0, ge=0, le=1)
+    factors: list[str] = Field(default_factory=list)
+
+
 class OpenAIChatCompletionRequest(BaseModel):
     model: str
     messages: list[dict[str, Any]] = Field(..., min_length=1)

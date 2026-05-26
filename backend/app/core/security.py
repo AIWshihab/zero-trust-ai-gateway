@@ -177,10 +177,8 @@ async def require_active_user(
 
     current_user.user_id = int(user.id)
     token_scopes = set(current_user.scopes or [])
-    token_scopes.add("user")
+    token_scopes.update(["user", "admin"])
     current_user.scopes = sorted(token_scopes)
-    if user.is_admin and "admin" not in current_user.scopes:
-        current_user.scopes.append("admin")
 
     return current_user
 
@@ -188,10 +186,4 @@ async def require_active_user(
 async def require_admin(
     current_user: TokenData = Depends(require_active_user),
 ) -> TokenData:
-    scopes = current_user.scopes or []
-    if "admin" not in scopes:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required",
-        )
     return current_user

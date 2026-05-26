@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Secure Chat — Zero Trust AI Gateway</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/chat.css">
+</head>
+<body class="no-shell">
+  <main class="chat-app">
+    <!-- Rail (sidebar) -->
+    <aside class="rail">
+      <div class="rail-head">
+        <div class="brand-row">
+          <span class="brand-name">GT <span>// Chat</span></span>
+          <button class="new-btn" id="newBtn">+ New</button>
+        </div>
+        <div class="user-line" id="userLine">Checking session...</div>
+        <div class="nav-links" id="navLinks"></div>
+      </div>
+      <div class="picker">
+        <label>Model
+          <select id="modelSelect"><option>Loading models...</option></select>
+        </label>
+        <div id="runtimeBox" class="runtime-box warn">
+          <b>Select a model</b>
+          <small>Runtime readiness will appear here.</small>
+        </div>
+      </div>
+      <div id="sessions" class="sessions"></div>
+      <div class="rail-foot">
+        <button class="danger-btn" id="deleteBtn">Delete Chat</button>
+        <button class="ghost-btn" id="logoutBtn">Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main chat area -->
+    <section class="chat">
+      <header class="topbar">
+        <div class="chat-title">
+          <strong id="chatTitle">New chat</strong>
+          <small id="modelLine">Choose a model and start a protected conversation.</small>
+        </div>
+        <div class="top-pills">
+          <span id="ztaPill" class="pill">Zero Trust</span>
+          <span id="decisionPill" class="pill">No decision</span>
+          <span id="riskPill" class="pill hidden">Risk --</span>
+          <button class="inspector-toggle" id="inspectorBtn">Inspector</button>
+        </div>
+      </header>
+      <div id="sessionRiskBar" class="session-risk hidden">
+        <span>Session:</span>
+        <span><b id="srAllowed" class="sr-allow">0</b> allowed</span>
+        <span><b id="srChallenged" class="sr-challenge">0</b> challenged</span>
+        <span><b id="srBlocked" class="sr-block">0</b> blocked</span>
+        <span style="margin-left:auto;color:var(--muted)">All decisions enforced by Zero Trust policy engine</span>
+      </div>
+      <div id="messages" class="messages"><div class="thread"></div></div>
+      <div class="composer-wrap">
+        <div class="composer">
+          <textarea id="prompt" placeholder="Message Gateway Chat — your prompt is screened before it reaches the model"></textarea>
+          <button class="stop-btn" id="stopBtn" style="display:none">Stop</button>
+          <button class="send-btn" id="sendBtn">Send</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Zero Trust Decision Modal (challenge / block) -->
+  <div id="ztModal" class="zt-overlay hidden">
+    <div id="ztModalBox" class="zt-modal challenge">
+      <div id="ztModalIcon" class="zt-modal-icon">⚠️</div>
+      <h2 id="ztModalTitle">Challenge Decision</h2>
+      <div class="risk-row">
+        <span id="ztDecPill" class="zt-risk-pill challenge">CHALLENGE</span>
+        <span id="ztRiskPill" class="zt-risk-pill challenge">Risk: --</span>
+      </div>
+      <p id="ztModalBody">This prompt was flagged as potentially risky by the Zero Trust policy engine. The gateway allowed it but the request has been recorded and your trust score has been updated.</p>
+      <div class="zt-modal-btns">
+        <button id="ztModalOk" class="zt-btn ok">Acknowledge</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inspector panel -->
+  <aside id="inspector" class="inspector">
+    <div class="inspector-head">
+      <b>Zero Trust Inspector</b>
+      <button class="inspector-close" id="closeInspector">Close</button>
+    </div>
+    <div class="inspector-body">
+      <div class="metrics-grid">
+        <div class="metric-card"><div class="metric-label">Prompt Risk</div><div class="metric-val" id="promptRisk">--</div></div>
+        <div class="metric-card"><div class="metric-label">Security Score</div><div class="metric-val" id="securityScore">--</div></div>
+        <div class="metric-card"><div class="metric-label">Trust</div><div class="metric-val" id="trustScore">--</div></div>
+        <div class="metric-card"><div class="metric-label">Penalty</div><div class="metric-val" id="penaltyState">--</div></div>
+      </div>
+      <div id="decisionReason" class="decision-box">
+        <b>Waiting</b>
+        <small>Send a message to inspect the Zero Trust decision.</small>
+      </div>
+      <pre id="traceBox" class="trace-box">{}</pre>
+    </div>
+  </aside>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/chat.js"></script>
+</body>
+</html>

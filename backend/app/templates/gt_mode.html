@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>GT Mode — Zero Trust Nexus</title>
+  <link rel="stylesheet" href="/static/css/gt_mode.css">
+</head>
+<body>
+
+<div id="loading">
+  <div class="ld-gem"></div>
+  <div class="ld-title">Zero Trust Nexus</div>
+  <div class="ld-bar"><div class="ld-fill"></div></div>
+</div>
+<div id="fade"></div>
+
+<!-- OVERVIEW UI -->
+<a id="ov-back" href="/dashboard">&#9666; Dashboard</a>
+<div id="ov-top">
+  <span class="gt-badge">GT MODE</span>
+  <span class="gt-title">Zero Trust Nexus</span>
+  <span class="gt-div"></span>
+  <div id="ov-stats">
+    <span class="gs">REQUESTS<b id="tReq">--</b></span>
+    <span class="gs">BLOCKED<b id="tBlk">--</b></span>
+    <span class="gs">MODELS<b id="tMdl">--</b></span>
+    <span class="gs">THREAT<b id="tThr">--</b></span>
+  </div>
+</div>
+<div id="health-rail"><div class="hr-hdr">Subsystems</div></div>
+<div id="ov-labels"></div>
+<div id="ov-legend">
+  <span class="lg-item"><span class="lg-gem" style="background:#7c3aed"></span>Core</span>
+  <span class="lg-item"><span class="lg-gem" style="background:#0ea5e9"></span>Guard</span>
+  <span class="lg-item"><span class="lg-gem" style="background:#10b981"></span>Models</span>
+  <span class="lg-item"><span class="lg-gem" style="background:#ef4444"></span>Firewall</span>
+  <span class="lg-item"><span class="lg-gem" style="background:#f59e0b"></span>Analysis</span>
+  <span class="lg-hint">&#9654; DRAG ORBIT &nbsp;&#10022;&nbsp; SCROLL ZOOM &nbsp;&#10022;&nbsp; CLICK NODE TO ENTER</span>
+</div>
+
+<!-- INNER VIEW UI -->
+<div id="inner-ui">
+  <div id="in-topbar">
+    <button id="in-back" onclick="exitInner()">&#9666; BACK TO NEXUS</button>
+    <div id="in-node-gem"></div>
+    <span id="in-node-name">—</span>
+    <span id="in-node-sub">—</span>
+    <div class="spacer"></div>
+    <span class="in-chip" id="in-status-chip">OPERATIONAL</span>
+  </div>
+  <div id="in-metrics"><div class="mp-hdr">Live Metrics</div><div id="mp-cards"></div></div>
+  <div id="in-feed">
+    <div class="fd-hdr"><span class="fd-dot"></span>Live Activity Feed</div>
+    <div id="feed-list"></div>
+  </div>
+</div>
+
+<canvas id="c"></canvas>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.158.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.158.0/examples/jsm/"}}
+</script>
+<script type="module" src="/static/js/gt_mode.js"></script>
+</body>
+</html>

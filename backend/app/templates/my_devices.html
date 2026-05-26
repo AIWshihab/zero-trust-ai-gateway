@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Devices — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/my_devices.css">
+</head>
+<body>
+<main class="shell">
+  <div class="page-eyebrow">Device & Session Security</div>
+  <h1>My Devices</h1>
+  <p class="page-sub">Your registered devices, active sessions, and security events — all real data, updated live.</p>
+  <div class="top-row">
+    <button class="btn" id="refreshBtn">Refresh</button>
+    <span class="last-updated" id="lastUpdated"></span>
+  </div>
+
+  <div class="section-title">This Device</div>
+  <div id="thisDeviceCard"><div class="empty-state">Detecting your device…</div></div>
+
+  <div class="section-title">All Registered Devices</div>
+  <div class="cards" id="deviceCards"><div class="empty-state">Loading…</div></div>
+
+  <div class="section-title">Sessions</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Started</th><th>Last Active</th><th>Expires</th><th>Device</th><th>Status</th><th></th></tr></thead>
+      <tbody id="sessionBody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="section-title">Security Events</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>When</th><th>Event</th><th>Severity</th><th>Browser · OS</th><th>Details</th></tr></thead>
+      <tbody id="eventBody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+    </table>
+  </div>
+</main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/my_devices.js"></script>
+</body>
+</html>

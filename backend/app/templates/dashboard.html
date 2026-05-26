@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body>
+<main class="shell">
+
+  <div class="gap">
+    <span class="gt">Behaviour-Aware Secure AI Inference</span>
+    <h1>Zero Trust AI Gateway</h1>
+    <p class="desc">Research-grade Zero Trust gateway for secure AI model serving. Every inference request is evaluated by the behavioural risk engine before it reaches a model.</p>
+  </div>
+
+  <!-- Stats Strip -->
+  <section class="stats gap">
+    <div class="stat" data-href="/dashboard/models">
+      <div class="stat-lbl">Active Models</div>
+      <div class="stat-val spin" id="sModels">…</div>
+      <div class="stat-sub" id="sModelsSub">&nbsp;</div>
+    </div>
+    <div class="stat" data-href="/dashboard/security-monitor">
+      <div class="stat-lbl">Total Requests</div>
+      <div class="stat-val spin" id="sTotal">…</div>
+      <div class="stat-sub" id="sTotalSub">&nbsp;</div>
+    </div>
+    <div class="stat" data-href="/dashboard/security-monitor">
+      <div class="stat-lbl">Blocked / Challenged</div>
+      <div class="stat-val spin" id="sBlocked">…</div>
+      <div class="stat-sub" id="sBlockedSub">&nbsp;</div>
+    </div>
+    <div class="stat" data-href="/dashboard/security-monitor">
+      <div class="stat-lbl">Average Risk</div>
+      <div class="stat-val spin" id="sRisk">…</div>
+      <div class="stat-sub" id="sRiskSub">&nbsp;</div>
+    </div>
+    <div class="stat" data-href="/dashboard/models">
+      <div class="stat-lbl">Runtime Ready</div>
+      <div class="stat-val spin" id="sReady">…</div>
+      <div class="stat-sub" id="sReadySub">&nbsp;</div>
+    </div>
+  </section>
+
+  <!-- System Status Bar -->
+  <div class="status-row gap" id="statusRow">
+    <div class="status-chip"><span class="dot muted pulse" id="ztaDot"></span><span class="chip-lbl">ZTA</span><span id="ztaMode">…</span></div>
+    <div class="status-chip"><span class="dot muted pulse" id="healthDot"></span><span class="chip-lbl">System</span><span id="healthStatus">…</span></div>
+    <div class="status-chip"><span class="dot cyan" style="background:var(--muted)"></span><span class="chip-lbl">Uptime</span><span id="uptime">…</span></div>
+    <div class="status-chip"><span class="dot cyan"></span><span class="chip-lbl">Controls</span><span id="controlsCount">…</span> active</div>
+    <div class="status-chip"><span class="dot cyan"></span><span class="chip-lbl">Detection Rules</span><span id="rulesCount">…</span> active</div>
+    <div class="status-chip"><span class="dot green" style="background:var(--muted)"></span><span class="chip-lbl">Active Users</span><span id="activeUsers">…</span></div>
+    <div class="status-chip"><span class="dot muted pulse" id="trustDot"></span><span class="chip-lbl">My Trust</span><span id="myTrust">…</span></div>
+  </div>
+
+  <!-- Gateway Decisions + User Posture -->
+  <section class="two-col gap">
+    <article class="card">
+      <div class="card-hd">
+        <span class="ldot off" id="decDot"></span>
+        Gateway Decisions
+        <a href="/dashboard/security-monitor">View all →</a>
+      </div>
+      <div class="dec-row">
+        <div class="dtile"><div class="dl">Allowed</div>   <strong id="dAllow" style="color:var(--green)">…</strong></div>
+        <div class="dtile"><div class="dl">Challenged</div><strong id="dChal"  style="color:var(--amber)">…</strong></div>
+        <div class="dtile"><div class="dl">Blocked</div>   <strong id="dBlock" style="color:var(--red)">…</strong></div>
+        <div class="dtile"><div class="dl">Block Rate</div><strong id="dRate"  style="color:var(--muted)">…</strong></div>
+      </div>
+      <div class="gt" style="margin-bottom:8px">Behavioural Attack Timeline</div>
+      <div id="dBars" class="bars"><div class="empty-note">Loading attack timeline…</div></div>
+    </article>
+
+    <article class="card">
+      <div class="card-hd">Security Posture <a href="/dashboard/account">My profile →</a></div>
+      <div class="posture-grid" id="postureGrid">
+        <div class="prow"><span class="prow-lbl">Trust Score</span><span class="prow-val spin" id="pTrust">…</span></div>
+        <div class="prow"><span class="prow-lbl">Trust Level</span><span class="prow-val" id="pLevel">…</span></div>
+        <div class="prow"><span class="prow-lbl">My Requests</span><span class="prow-val" id="pReqs">…</span></div>
+        <div class="prow"><span class="prow-lbl">My Blocked</span><span class="prow-val" id="pBlocked" style="color:var(--red)">…</span></div>
+        <div class="prow"><span class="prow-lbl">Rate (req/min)</span><span class="prow-val" id="pRate">…</span></div>
+        <div class="prow"><span class="prow-lbl">Rate Limited</span><span class="prow-val" id="pRateLtd">…</span></div>
+      </div>
+      <div class="trust-bar-wrap" style="margin-top:10px">
+        <div class="trust-bar-label"><span>Trust Score</span><span id="pTrustPct">—</span></div>
+        <div class="trust-bar-track"><div class="trust-bar-fill" id="pTrustBar" style="width:0%;background:var(--green)"></div></div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="card-hd" style="margin-bottom:8px">ZTA Enforcement</div>
+        <div class="posture-grid">
+          <div class="prow"><span class="prow-lbl">Mode</span><span class="prow-val" id="pZtaMode">…</span></div>
+          <div class="prow"><span class="prow-lbl">Avg Latency</span><span class="prow-val" id="pLatency">…</span></div>
+          <div class="prow"><span class="prow-lbl">Avg Security Score</span><span class="prow-val" id="pSecScore">…</span></div>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- Active Alerts (shown only if alerts exist) -->
+  <section class="alerts-section gap" id="alertsSection" style="display:none">
+    <div class="section-hd">
+      <span class="gt" style="margin:0">Active Security Alerts</span>
+      <a href="/dashboard/security-monitor">Security Monitor →</a>
+    </div>
+    <div id="alertsList"></div>
+  </section>
+
+  <!-- Model Readiness -->
+  <section class="gap">
+    <div class="section-hd">
+      <span class="gt" style="margin:0">Model Readiness</span>
+      <a href="/dashboard/models">Manage models →</a>
+    </div>
+    <div id="mList" class="mlist"><div class="empty-note">Loading model status…</div></div>
+  </section>
+
+  <!-- Live Feed -->
+  <section class="gap">
+    <div class="feed-hd">
+      <span class="gt" style="margin:0">Recent Security Decisions</span>
+      <span class="ldot off" id="feedDot"></span>
+      <span class="fst" id="feedSt">Connecting…</span>
+      <a href="/dashboard/security-monitor" style="font-size:11px;color:var(--muted);margin-left:auto">Full audit trail →</a>
+    </div>
+    <div id="liveFeed" class="flist">
+      <div class="fempty">No log entries yet.<br>Send a request through <a href="/dashboard/chat">Gateway Chat</a> to generate security decisions.</div>
+    </div>
+  </section>
+
+  <!-- Modules -->
+  <div class="gap">
+    <span class="gt">Gateway Modules</span>
+    <div id="mGrid" class="mgrid"></div>
+  </div>
+
+</main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>

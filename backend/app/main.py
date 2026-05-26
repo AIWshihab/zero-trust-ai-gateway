@@ -1,18 +1,15 @@
 import logging
-import os
-import tempfile
-import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.background import BackgroundTask
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal, init_additive_security_tables, init_db
-from app.routers import auth, models, detect, assessment, protection, usage, reporting, security, research, navigation, gateway, firewall, evaluation, testing, system, devices, streaming, chat, extension
+from app.routers import auth, models, detect, assessment, protection, usage, reporting, security, research, navigation, gateway, firewall, evaluation, testing, system, devices, streaming, chat
 from app.core import monitoring
 from app.services.security_catalog import seed_default_security_controls
 from app.services.firewall_clients import seed_default_firewall_client
@@ -37,8 +34,6 @@ from app.ui.control_center import CONTROL_CENTER_HTML
 from app.ui.account_security import ACCOUNT_SECURITY_HTML
 from app.ui.my_models import MY_MODELS_HTML
 from app.ui.my_devices import MY_DEVICES_HTML
-from app.ui.extension import EXTENSION_HTML
-from app.ui.extension_connect import EXTENSION_CONNECT_HTML
 from app.ui.getting_started import GETTING_STARTED_HTML
 
 settings = get_settings()
@@ -63,10 +58,13 @@ app = FastAPI(
     title=settings.APP_NAME,
     description="Dynamic Zero-Trust Architecture for Secure AI Model Serving",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.DOCS_PREVIEW else None,
+    redoc_url="/redoc" if settings.DOCS_PREVIEW else None,
     lifespan=lifespan,
 )
+
+_static_dir = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 _cors_origins = list(settings.CORS_ALLOW_ORIGINS)
 if settings.FRONTEND_ORIGIN and settings.FRONTEND_ORIGIN not in _cors_origins:
@@ -127,12 +125,6 @@ app.include_router(
     chat.router,
     prefix=f"{settings.API_V1_PREFIX}/chat",
     tags=["Gateway Chat"],
-)
-
-app.include_router(
-    extension.router,
-    prefix=f"{settings.API_V1_PREFIX}/extension",
-    tags=["Browser Extension"],
 )
 
 app.include_router(
@@ -239,42 +231,6 @@ async def chat_page():
 @app.get("/dashboard/chat", response_class=HTMLResponse, tags=["Dashboard"])
 async def secure_chat_page():
     return CHAT_HTML
-
-
-@app.get("/dashboard/extension", response_class=HTMLResponse, tags=["Dashboard"])
-async def browser_extension_page():
-    return RedirectResponse(url="/dashboard/extension/install")
-
-
-@app.get("/dashboard/extension/install", response_class=HTMLResponse, tags=["Dashboard"])
-async def browser_extension_install_page():
-    return EXTENSION_HTML
-
-
-@app.get("/dashboard/extension/connect", response_class=HTMLResponse, tags=["Dashboard"])
-async def browser_extension_connect_page():
-    return EXTENSION_CONNECT_HTML
-
-
-@app.get("/downloads/browser-extension.zip", tags=["Dashboard"])
-async def download_browser_extension():
-    source_dir = Path(__file__).resolve().parents[2] / "browser-extension"
-    if not source_dir.exists():
-        return RedirectResponse(url="/dashboard/extension")
-
-    fd, archive_path = tempfile.mkstemp(prefix="browser-extension-", suffix=".zip")
-    os.close(fd)
-    Path(archive_path).unlink(missing_ok=True)
-    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as archive:
-        for path in source_dir.rglob("*"):
-            if path.is_file():
-                archive.write(path, path.relative_to(source_dir.parent))
-    return FileResponse(
-        archive_path,
-        filename="zero-trust-ai-gateway-browser-extension.zip",
-        media_type="application/zip",
-        background=BackgroundTask(lambda: Path(archive_path).unlink(missing_ok=True)),
-    )
 
 
 @app.get("/control-plane", response_class=HTMLResponse, tags=["Dashboard"])

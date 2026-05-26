@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Getting Started — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/getting_started.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="page-header">
+      <div>
+        <div class="page-eyebrow">Beginner Guide</div>
+        <h1>Use The Gateway In 5 Minutes</h1>
+        <p>This page is for non-technical users. Follow the steps in order: start with Secure Chat, then check Security Monitor to see live security decisions.</p>
+      </div>
+      <div class="hdr-row">
+        <a class="primary" href="/dashboard/chat">Start Secure Chat</a>
+      </div>
+    </section>
+
+    <section class="feature-grid">
+      <article class="card">
+        <div class="card-label">Start here</div>
+        <h2>Secure Chat</h2>
+        <p>Ask the AI through the gateway. The gateway checks risk first, then allows, challenges, or blocks the request.</p>
+        <div class="card-link"><a href="/dashboard/chat">Open Secure Chat</a></div>
+      </article>
+      <article class="card">
+        <div class="card-label">Watch activity</div>
+        <h2>Security Monitor</h2>
+        <p>See real requests, blocked prompts, device events, alerts, and model/provider failures.</p>
+        <div class="card-link"><a href="/dashboard/security-monitor">Open Security Monitor</a></div>
+      </article>
+    </section>
+
+    <section class="wide">
+      <article class="card">
+        <div class="card-label">Simple Walkthrough</div>
+        <div class="steps" style="margin-top:12px">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div><h3>Chat safely</h3><p>Open Secure Chat, pick a model, type a message, and send it. If the request is safe, the gateway lets it through.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div><h3>Check what happened</h3><p>Open Security Monitor. Look for Allowed, Challenged, Blocked, request risk, device events, and any provider errors.</p></div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div><h3>Explore the policy</h3><p>Open Policy Engine to review and adjust security controls, detection rules, and trust thresholds.</p></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-label">What The Buttons Mean</div>
+        <ul class="quick-list" style="margin-top:12px">
+          <li><b>Secure Chat</b><span>Main place to talk to AI through gateway protection.</span></li>
+          <li><b>Models</b><span>Shows which AI models are available and whether they are ready.</span></li>
+          <li><b>Security Monitor</b><span>Shows real security activity, not demo data.</span></li>
+          <li><b>Policy Engine</b><span>Admin/security area for controls and rules.</span></li>
+          <li><b>Account</b><span>Password, sessions, devices, and security settings.</span></li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="wide">
+      <article class="card">
+        <div class="card-label">Fix Common Problems</div>
+        <ul class="quick-list" style="margin-top:12px">
+          <li><b>Cannot login</b><span>Create an account from the signup page or check the password.</span></li>
+          <li><b>No chat reply</b><span>Check model readiness and provider API keys. Provider failure is shown honestly.</span></li>
+          <li><b>Security Monitor empty</b><span>Send a chat prompt first so the gateway has real events to show.</span></li>
+          <li><b>Revoked device</b><span>That device is blocked. Admin/user must reconnect or allow a new device.</span></li>
+        </ul>
+      </article>
+    </section>
+
+    <section class="notice">
+      <h2>// Remember</h2>
+      <p>Model API keys and gateway secrets stay on the backend. All allow, challenge, and block decisions happen server-side before any inference runs.</p>
+    </section>
+  </main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/getting_started.js"></script>
+</body>
+</html>

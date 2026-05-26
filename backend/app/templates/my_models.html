@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Models — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/my_models.css">
+</head>
+<body>
+<main class="shell">
+  <div class="eyebrow">Model Management</div>
+  <h1>My Models</h1>
+  <p class="sub">Add and manage your own AI model connections. Maximum 3 active models per account.</p>
+
+  <div id="notice" style="display:none" class="notice"></div>
+
+  <div class="limit-bar">
+    <div class="limit-dots" id="limitDots">
+      <div class="limit-dot"></div>
+      <div class="limit-dot"></div>
+      <div class="limit-dot"></div>
+    </div>
+    <span id="limitText">Loading…</span>
+  </div>
+
+  <div class="add-form" id="addForm">
+    <h3>Add a Model</h3>
+    <div class="form-grid">
+      <label>Name <input id="mName" placeholder="My GPT-4o" /></label>
+      <label>Provider
+        <select id="mType">
+          <option value="openai">OpenAI</option>
+          <option value="huggingface">HuggingFace</option>
+          <option value="ollama">Ollama</option>
+          <option value="local">Local</option>
+          <option value="custom_api">Custom API</option>
+        </select>
+      </label>
+      <label>Endpoint URL <input id="mEndpoint" placeholder="https://api.openai.com/v1/..." /></label>
+      <label>Provider Name <input id="mProvider" placeholder="OpenAI, Mistral, etc." /></label>
+      <label>HuggingFace Model ID <input id="mHfId" placeholder="mistralai/Mistral-7B-v0.1" /></label>
+      <label>Visibility
+        <select id="mVisibility">
+          <option value="private">Private (only me)</option>
+          <option value="shared">Shared (all users)</option>
+        </select>
+      </label>
+    </div>
+    <div style="margin-top:10px">
+      <label>Description <textarea id="mDesc" rows="2" placeholder="Optional short description" style="resize:vertical"></textarea></label>
+    </div>
+    <div class="form-actions">
+      <button class="btn-primary" id="addBtn">Add Model</button>
+      <button class="btn" id="cancelBtn" style="display:none">Cancel</button>
+    </div>
+  </div>
+
+  <div id="modelGrid" class="grid">
+    <div style="grid-column:1/-1;text-align:center;padding:20px;color:#9ca8bd;font-size:13px">Loading…</div>
+  </div>
+</main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/my_models.js"></script>
+</body>
+</html>

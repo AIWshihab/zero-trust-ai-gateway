@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Audit Trail — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/logs.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="page-header">
+      <div>
+        <div class="page-eyebrow">Audit Trail</div>
+        <h1>Request Audit Log</h1>
+        <p>Structured audit record of every enforcement decision: request risk score, model used, policy controls triggered, trust state at decision time, and enforcement outcome.</p>
+      </div>
+      <div class="hdr-row">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/models">Models</a>
+        <a href="/dashboard/policy">Policy Engine</a>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </div>
+    <section style="display:none">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:14px;background:var(--bg-1);border:1px solid var(--b2);border-radius:8px;margin-bottom:16px">
+        <input id="token" placeholder="Paste bearer token or login below" style="flex:1;min-width:240px" />
+        <input id="username" placeholder="username" />
+        <input id="password" type="password" placeholder="password" />
+        <button id="loginBtn" class="primary">Login</button>
+        <span id="roleBadge" class="badge">viewer</span>
+      </div>
+    </section>
+    <section class="stats-strip">
+      <div class="metric"><div class="metric-label">Total Requests</div><div class="metric-value" id="totalRequests">--</div></div>
+      <div class="metric"><div class="metric-label">Blocked</div><div class="metric-value" id="blockedRequests">--</div></div>
+      <div class="metric"><div class="metric-label">Challenged</div><div class="metric-value" id="challengedRequests">--</div></div>
+      <div class="metric"><div class="metric-label">Block Rate</div><div class="metric-value" id="blockRate">--</div></div>
+    </section>
+    <section class="panel">
+      <div class="panel-hdr">
+        <div class="panel-title">Request Trace</div>
+        <div class="filter-row">
+          <select id="decision">
+            <option value="">All decisions</option>
+            <option value="allow">Allow</option>
+            <option value="challenge">Challenge</option>
+            <option value="block">Block</option>
+          </select>
+          <input id="modelId" type="number" min="1" placeholder="model id" style="width:100px" />
+          <select id="limit">
+            <option>25</option>
+            <option selected>50</option>
+            <option>100</option>
+            <option>250</option>
+          </select>
+          <button id="refreshBtn" class="primary">Refresh</button>
+        </div>
+      </div>
+      <div id="logs" class="cards"></div>
+    </section>
+  </div>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/logs.js"></script>
+</body>
+</html>

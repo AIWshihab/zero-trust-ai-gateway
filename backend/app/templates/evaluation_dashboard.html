@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Evaluation System</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/evaluation_dashboard.css">
+</head>
+<body>
+<main class="shell">
+  <section class="row">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/dashboard/demo">Demo</a>
+    <a href="/logs">Logs</a>
+    <button id="exportJsonBtn">Export JSON</button>
+    <button id="exportSummaryBtn">Export Summary</button>
+  </section>
+  <div>
+    <div class="muted">Adaptive gateway vs. deterministic baseline — comparative enforcement analysis</div>
+    <h1 style="margin:0">Baseline Comparison</h1>
+  </div>
+
+  <article class="card">
+    <div class="row">
+      <label class="muted">Scenario <select id="scenarioSelect"></select></label>
+      <button id="runBtn">Evaluate</button>
+      <span id="state" class="muted">Loading scenarios...</span>
+    </div>
+  </article>
+
+  <section class="metrics">
+    <article class="card metric"><span class="muted">Detection improvement</span><strong id="detectDelta">--</strong></article>
+    <article class="card metric"><span class="muted">Risk reduction</span><strong id="riskReduction">--</strong></article>
+    <article class="card metric"><span class="muted">Block improvement</span><strong id="blockDelta">--</strong></article>
+    <article class="card metric"><span class="muted">Stopped at</span><strong id="stopStep">--</strong></article>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <h2 style="margin:0 0 10px">Baseline: weak system</h2>
+      <div id="baselineMetrics" class="timeline muted">No evaluation yet.</div>
+    </article>
+    <article class="card">
+      <h2 style="margin:0 0 10px">Gateway: Zero Trust controls</h2>
+      <div id="gatewayMetrics" class="timeline muted">No evaluation yet.</div>
+    </article>
+  </section>
+
+  <section class="card">
+    <h2 style="margin:0 0 10px">Attack Progression</h2>
+    <div id="timeline" class="timeline muted">Select a scenario to compare attack progression.</div>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <h2 style="margin:0 0 10px">Policy Impact</h2>
+      <div id="policyImpact" class="timeline muted">No policy impact yet.</div>
+    </article>
+    <article class="card">
+      <h2 style="margin:0 0 10px">Raw Evidence</h2>
+      <pre id="raw" class="muted">No report loaded.</pre>
+    </article>
+  </section>
+</main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/evaluation_dashboard.js"></script>
+</body>
+</html>

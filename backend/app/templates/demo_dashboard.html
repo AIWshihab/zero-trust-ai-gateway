@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Evaluation Demo</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/demo_dashboard.css">
+</head>
+<body>
+<main class="shell">
+  <section class="row">
+    <a href="/dashboard">Dashboard</a>
+    <a href="/dashboard/soc">SOC</a>
+    <a href="/dashboard/security">Security Tests</a>
+    <button id="exportBtn">Export session</button>
+  </section>
+  <div>
+    <div class="muted">Scenario-driven replay using real gateway telemetry</div>
+    <h1 style="margin:0">Scenario Replay</h1>
+  </div>
+
+  <section class="grid">
+    <article class="card">
+      <h2 style="margin:0 0 10px">Attack Scenario Replay</h2>
+      <label class="muted">Model</label>
+      <select id="modelSelect"><option>Loading models...</option></select>
+      <div id="scenarioList" class="cards" style="margin-top:12px"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="runBtn">Run Scenario</button>
+        <button id="refreshEvidenceBtn">Refresh Evidence</button>
+      </div>
+      <div class="muted" id="runState" style="margin-top:8px">Choose a scenario and run it through the existing gateway.</div>
+    </article>
+
+    <article class="card">
+      <h2 style="margin:0 0 10px">Timeline Replay</h2>
+      <div id="timeline" class="timeline muted">No scenario run yet.</div>
+    </article>
+  </section>
+
+  <section class="split">
+    <article class="card">
+      <h2 style="margin:0 0 10px">Policy Impact</h2>
+      <div class="split">
+        <div class="card">
+          <div class="muted">Without adaptive controls</div>
+          <div class="metric"><strong id="withoutRate">--</strong><div class="muted">estimated risky pass-through</div></div>
+          <div class="bar"><div id="withoutFill" class="fill"></div></div>
+        </div>
+        <div class="card">
+          <div class="muted">With controls</div>
+          <div class="metric"><strong id="withRate">--</strong><div class="muted">blocked or challenged</div></div>
+          <div class="bar"><div id="withFill" class="fill"></div></div>
+        </div>
+      </div>
+      <div class="metric-grid" style="margin-top:10px">
+        <div class="card metric"><span class="muted">Risk reduction</span><strong id="riskReduction">--</strong></div>
+        <div class="card metric"><span class="muted">Trust impact</span><strong id="trustImpact">--</strong></div>
+        <div class="card metric"><span class="muted">Evidence logs</span><strong id="evidenceCount">--</strong></div>
+      </div>
+    </article>
+
+    <article class="card">
+      <h2 style="margin:0 0 10px">Control Effectiveness</h2>
+      <div id="factors" class="cards muted">Evidence will appear after logs load.</div>
+    </article>
+  </section>
+
+  <section class="card">
+    <h2 style="margin:0 0 10px">System Flow</h2>
+    <div class="flow" id="flow">
+      <div class="node" data-stage="firewall"><b>User</b><span class="muted">External request enters gateway context.</span></div>
+      <div class="node" data-stage="pep"><b>Firewall</b><span class="muted">Client/API boundary and request enforcement.</span></div>
+      <div class="node" data-stage="pdp"><b>Policy Engine</b><span class="muted">Risk, trust, sensitivity, and decision.</span></div>
+      <div class="node" data-stage="model"><b>Model</b><span class="muted">Forwarded only when policy permits.</span></div>
+      <div class="node" data-stage="output"><b>Output Guard</b><span class="muted">Response checked before return.</span></div>
+    </div>
+    <pre id="flowDetail" class="muted" style="margin-top:10px">Click a stage to inspect the latest real decision evidence.</pre>
+  </section>
+</main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/demo_dashboard.js"></script>
+</body>
+</html>

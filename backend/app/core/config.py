@@ -116,6 +116,7 @@ class Settings(BaseSettings):
     MODEL_RISK_ENABLED: bool = True
     PROMPT_ANALYSIS_ENABLED: bool = True
     RATE_LIMITING_ENABLED: bool = True
+    DOCS_PREVIEW: bool = os.getenv("DOCS_PREVIEW", "false").lower() in {"1", "true", "t", "yes", "y", "on"} 
     USER_TRUST_SCORE_ENABLED: bool = True
     CORS_ALLOW_ORIGINS: list[str] = Field(
         default_factory=lambda: (

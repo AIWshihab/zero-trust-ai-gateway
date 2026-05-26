@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign Up — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/signup.css">
+</head>
+<body class="no-shell">
+  <main class="wrap">
+    <section class="hero">
+      <div>
+        <div class="logo-line">Zero Trust AI Gateway</div>
+        <h1 style="margin-top:14px">Join The<br><span>Secure AI</span> Gateway</h1>
+        <p class="hero-desc" style="margin-top:14px">Create your account, build trust score from clean usage, and enter the protected AI inference gateway. Every request goes through prompt defense before it reaches a model.</p>
+      </div>
+      <div class="features">
+        <div class="feature"><b>Behaviour Scoring</b><span>Trust score builds from request history and security events.</span></div>
+        <div class="feature"><b>Policy Enforcement</b><span>Every request is screened, scored, and decided before inference runs.</span></div>
+        <div class="feature"><b>Audit Trail</b><span>Full structured record of every decision with risk metrics.</span></div>
+      </div>
+      <div class="status-row"><span class="dot"></span>Gateway online · MSc Dissertation Project</div>
+    </section>
+
+    <section class="auth-card">
+      <div class="auth-title">
+        <p><span>//</span> Registration</p>
+        <h2>Create Account</h2>
+      </div>
+      <form id="signupForm" class="form-section">
+        <label>Email <input id="email" type="email" autocomplete="email" placeholder="you@example.com" /></label>
+        <label>Username <input id="username" autocomplete="username" placeholder="your-username" /></label>
+        <label>Password <input id="password" type="password" autocomplete="new-password" placeholder="At least 6 characters" /></label>
+        <button class="submit-btn" type="submit">Create Account</button>
+      </form>
+      <div class="back-link">Already have an account? <a href="/login">Sign in</a></div>
+      <div id="result" class="result-box">Ready to register.</div>
+    </section>
+  </main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/signup.js"></script>
+</body>
+</html>

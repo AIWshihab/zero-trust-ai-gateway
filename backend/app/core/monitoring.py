@@ -1,11 +1,14 @@
 from datetime import datetime, timezone
+import asyncio
+import json as _json
 import os
 
 from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
+from app.core.database import get_db, AsyncSessionLocal
 from app.core.security import require_active_user, require_admin
 from app.models.attack_sequence_event import AttackSequenceEvent
 from app.models.model import Model
@@ -332,6 +335,84 @@ async def all_logs(
         "limit": limit,
         "logs": logs,
     }
+
+
+@router.get("/logs/stream")
+async def stream_logs(
+    since_id: int = Query(default=0),
+    current_user: TokenData = Depends(require_active_user),
+):
+    is_admin = "admin" in (current_user.scopes or [])
+    uid = current_user.user_id
+
+    async def event_generator():
+        last_id = since_id
+        while True:
+            try:
+                async with AsyncSessionLocal() as db:
+                    query = select(RequestLog).where(RequestLog.id > last_id)
+                    if not is_admin:
+                        query = query.where(RequestLog.user_id == uid)
+                    query = query.order_by(RequestLog.id.asc()).limit(20)
+                    rows = (await db.execute(query)).scalars().all()
+
+                    if rows:
+                        u_ids = [r.user_id for r in rows if r.user_id is not None]
+                        m_ids = [r.model_id for r in rows if r.model_id is not None]
+
+                        usernames: dict = {}
+                        if u_ids:
+                            usernames = {
+                                int(uid_): str(uname)
+                                for uid_, uname in (
+                                    await db.execute(
+                                        select(User.id, User.username).where(User.id.in_(set(u_ids)))
+                                    )
+                                ).all()
+                            }
+
+                        model_names: dict = {}
+                        if m_ids:
+                            model_names = {
+                                int(mid): str(mname)
+                                for mid, mname in (
+                                    await db.execute(
+                                        select(Model.id, Model.name).where(Model.id.in_(set(m_ids)))
+                                    )
+                                ).all()
+                            }
+
+                        for row in rows:
+                            payload = {
+                                "id": row.id,
+                                "decision": row.decision,
+                                "timestamp": row.timestamp.isoformat() if row.timestamp else None,
+                                "username": usernames.get(int(row.user_id)) if row.user_id is not None else None,
+                                "model_name": model_names.get(int(row.model_id)) if row.model_id is not None else None,
+                                "prompt_risk_score": row.prompt_risk_score,
+                                "security_score": row.security_score,
+                            }
+                            yield f"data: {_json.dumps(payload)}\n\n"
+                            last_id = row.id
+                    else:
+                        yield ": heartbeat\n\n"
+
+            except (asyncio.CancelledError, GeneratorExit):
+                return
+            except Exception:
+                yield ": error\n\n"
+
+            await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.get("/logs/me")

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Model Registry — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/model_manager.css">
+</head>
+<body>
+  <div class="shell">
+    <div class="page-header">
+      <div>
+        <div class="page-eyebrow">Model Registry & Readiness</div>
+        <h1>Model Registry</h1>
+        <p>Register AI model endpoints for gateway-protected inference. The gateway checks ownership, runtime readiness, model posture, and risk classification before inference is allowed.</p>
+      </div>
+      <div class="hdr-row">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/policy">Policy Engine</a>
+        <a href="/dashboard/security-monitor">Security Monitor</a>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </div>
+    <section class="panel" style="display:none; margin-bottom:16px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="token" style="flex:1;min-width:240px" placeholder="Paste bearer token or login below" />
+        <input id="username" placeholder="username" />
+        <input id="password" type="password" placeholder="password" />
+        <button id="loginBtn" class="primary">Login</button>
+        <span id="roleBadge" class="badge">viewer</span>
+      </div>
+    </section>
+    <div class="layout">
+      <section class="panel" id="addPanel">
+        <div class="panel-title">Add Model Endpoint</div>
+        <div class="hint">Users can add and manage owned models. Admins can also assess posture and manage any model.</div>
+        <label>Name <input id="name" placeholder="Qwen 2.5 7B Instruct" /></label>
+        <label>Type
+          <select id="model_type">
+            <option value="huggingface">Hugging Face</option>
+            <option value="openai">OpenAI / compatible</option>
+            <option value="custom_api">Custom API</option>
+            <option value="local">Local endpoint</option>
+          </select>
+        </label>
+        <label>Provider <input id="provider_name" placeholder="huggingface, openai, together, local" /></label>
+        <label>HuggingFace Model ID <input id="hf_model_id" placeholder="Qwen/Qwen2.5-7B-Instruct" /></label>
+        <label>Source URL <input id="source_url" placeholder="https://huggingface.co/..." /></label>
+        <label>Endpoint <input id="endpoint" placeholder="https://api.example.com/v1/chat/completions" /></label>
+        <label>Visibility <select id="visibility"><option value="private">Private</option><option value="shared">Shared</option></select></label>
+        <label>Description <textarea id="description" placeholder="What this model is used for, owner, data sensitivity, and safety notes."></textarea></label>
+        <div class="btn-row">
+          <button id="scanBtn" class="primary">Add Model</button>
+          <button id="clearBtn">Clear</button>
+        </div>
+        <pre id="result">Ready to add a model.</pre>
+      </section>
+      <section class="panel">
+        <div class="panel-hdr">
+          <div class="panel-title" style="margin:0">Models</div>
+          <button id="refreshBtn">Refresh</button>
+        </div>
+        <div class="stats-strip">
+          <div class="metric"><div class="metric-label">Total</div><div class="metric-value" id="totalCount">--</div></div>
+          <div class="metric"><div class="metric-label">Active</div><div class="metric-value" id="activeCount">--</div></div>
+          <div class="metric"><div class="metric-label">Protected</div><div class="metric-value" id="protectedCount">--</div></div>
+        </div>
+        <div id="modelList" class="cards"></div>
+      </section>
+    </div>
+  </div>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/model_manager.js"></script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Firewall Clients</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/firewall_admin.css">
+</head>
+<body>
+<main class="shell">
+  <section class="row"><a href="/dashboard">Dashboard</a><a href="/control-plane">Control Plane</a><button id="refreshBtn">Refresh</button></section>
+  <h1 style="margin:0">Firewall Client Admin</h1>
+  <section class="grid">
+    <article class="card">
+      <h3 style="margin:4px 0 10px">Create / Update Client</h3>
+      <div class="list">
+        <label>Client ID<input id="client_id" placeholder="partner-app"/></label>
+        <label>Name<input id="name" placeholder="Partner App"/></label>
+        <label>API key<input id="api_key" placeholder="leave blank to auto-generate"/></label>
+        <label>Rate limit<input id="rate_limit" type="number" value="60" min="1"/></label>
+        <label>Window seconds<input id="rate_window_seconds" type="number" value="60" min="1"/></label>
+        <label>Trust score<input id="trust_score" type="number" value="0.8" min="0" max="1" step="0.01"/></label>
+        <label>Require signature<select id="require_signature"><option value="false">false</option><option value="true">true</option></select></label>
+        <label>HMAC secret<input id="hmac_secret"/></label>
+        <div class="row"><button id="saveBtn">Save</button><button id="resetBtn">Reset</button></div>
+      </div>
+      <pre id="newKey" class="muted">Generated keys will appear here once after create/update.</pre>
+    </article>
+    <article class="card">
+      <h3 style="margin:4px 0 10px">Clients</h3>
+      <div id="clients" class="list muted">Loading…</div>
+    </article>
+  </section>
+</main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/firewall_admin.js"></script>
+</body>
+</html>

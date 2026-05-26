@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Security Test Suite</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/security_suite.css">
+</head>
+<body>
+<main class="shell">
+
+  <!-- Header -->
+  <section class="top">
+    <div class="top-left">
+      <div class="eyebrow">Zero Trust AI Gateway — Evaluation</div>
+      <h1>Behavioural Test Suite</h1>
+    </div>
+    <div class="top-right">
+      <a class="nl" href="/dashboard">Dashboard</a>
+      <a class="nl" href="/control-plane">Control Plane</a>
+      <a class="nl" href="/dashboard/models/compare">Compare Models</a>
+    </div>
+  </section>
+
+  <!-- Config -->
+  <article class="cfg-card">
+    <div class="cfg-row">
+      <span class="cfg-label">Model ID <input class="mid" id="modelId" type="number" value="1" min="1" max="99" /></span>
+      <button id="runBtn"><span id="btnIcon">▶</span><span id="btnTxt">Run Security Tests</span></button>
+      <span class="run-badge rb-idle" id="runBadge"><span id="badgeDot" style="width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor"></span><span id="badgeTxt">Ready</span></span>
+      <span style="font-size:11px;color:var(--muted)" id="runMeta"></span>
+    </div>
+    <div class="prog-wrap">
+      <div class="prog-header">
+        <span id="progLabel">Test progress</span>
+        <span id="progCount">0 / 0</span>
+      </div>
+      <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+    </div>
+  </article>
+
+  <!-- Score hero -->
+  <article class="score-hero" id="scoreHero" style="display:none">
+    <div class="score-circle" id="scoreCircle">
+      <span class="score-num" id="scoreNum">0</span>
+      <span class="score-max">/100</span>
+    </div>
+    <div class="score-right">
+      <div>
+        <div class="score-grade" id="scoreGrade">—</div>
+        <div class="score-desc" id="scoreDesc">Run tests to compute the security score</div>
+      </div>
+      <div class="score-bar-wrap">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px">
+          <span>System Security Score</span><span id="scorePct">—</span>
+        </div>
+        <div class="score-bar-track"><div class="score-bar-fill" id="scoreBar"></div></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- Metric cards -->
+  <section class="metrics">
+    <article class="m-card">
+      <div class="m-label">Detection Accuracy</div>
+      <div class="m-value" id="mAcc" style="color:var(--good)">—</div>
+      <div class="m-bar-track"><div class="m-bar-fill" id="mAccBar" style="background:var(--good)"></div></div>
+      <div class="m-sub" id="mAccSub">attacks correctly identified</div>
+    </article>
+    <article class="m-card">
+      <div class="m-label">False Positive Rate</div>
+      <div class="m-value" id="mFpr" style="color:var(--warn)">—</div>
+      <div class="m-bar-track"><div class="m-bar-fill" id="mFprBar" style="background:var(--warn)"></div></div>
+      <div class="m-sub" id="mFprSub">safe queries incorrectly flagged</div>
+    </article>
+    <article class="m-card">
+      <div class="m-label">System Effectiveness</div>
+      <div class="m-value" id="mEff" style="color:var(--blue)">—</div>
+      <div class="m-bar-track"><div class="m-bar-fill" id="mEffBar" style="background:var(--blue)"></div></div>
+      <div class="m-sub" id="mEffSub">total correct decisions</div>
+    </article>
+  </section>
+
+  <!-- Test log -->
+  <section class="log-card">
+    <div class="log-title-row">
+      <span class="log-title">Test Log</span>
+      <div class="log-filters">
+        <button class="lf-btn active" id="lfAll"  onclick="filterLog('all')">All</button>
+        <button class="lf-btn"       id="lfPass" onclick="filterLog('pass')">Pass</button>
+        <button class="lf-btn"       id="lfFail" onclick="filterLog('fail')">Fail</button>
+      </div>
+    </div>
+    <div class="log-list" id="logList">
+      <div class="placeholder">Press <strong>Run Security Tests</strong> to start the evaluation suite.</div>
+    </div>
+  </section>
+
+</main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/security_suite.js"></script>
+</body>
+</html>

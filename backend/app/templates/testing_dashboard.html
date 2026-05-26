@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>System Self-Test</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/testing_dashboard.css">
+</head>
+<body>
+  <main class="shell">
+
+    <!-- Header -->
+    <section class="top">
+      <div class="top-left">
+        <div class="eyebrow">Zero Trust AI Gateway</div>
+        <h1>System Self-Test</h1>
+      </div>
+      <div class="top-right">
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/soc">SOC</a>
+        <a href="/dashboard/security">Security Suite</a>
+        <button id="runBtn"><span id="btnIcon">▶</span><span id="btnText">Run Tests</span></button>
+        <span class="badge badge-idle" id="statusBadge"><span class="badge-dot"></span><span id="statusText">Not run</span></span>
+        <span class="last-run" id="lastRun"></span>
+      </div>
+    </section>
+
+    <!-- Error banner -->
+    <div class="error-banner" id="errorBanner"></div>
+
+    <!-- Metrics -->
+    <section class="metrics">
+      <article class="metric loading" id="cardTotal">
+        <div class="label">Total Tests</div>
+        <div class="value" id="total">—</div>
+        <div class="sub" id="subTotal">waiting</div>
+      </article>
+      <article class="metric loading" id="cardPassed">
+        <div class="label">Passed</div>
+        <div class="value" id="passed" style="color:var(--good)">—</div>
+        <div class="prog-wrap">
+          <div class="prog-track"><div class="prog-fill" id="passBar" style="background:var(--good)"></div></div>
+          <div class="prog-label" id="passRate">—</div>
+        </div>
+      </article>
+      <article class="metric loading" id="cardFailed">
+        <div class="label">Failed</div>
+        <div class="value" id="failed" style="color:var(--bad)">—</div>
+        <div class="sub" id="subFailed">—</div>
+      </article>
+      <article class="metric loading" id="cardDur">
+        <div class="label">Duration</div>
+        <div class="value" id="duration" style="font-size:22px">—</div>
+        <div class="sub">seconds</div>
+      </article>
+    </section>
+
+    <!-- Test log -->
+    <section class="log-panel">
+      <div class="log-header">
+        <div class="log-title">Test Log</div>
+        <div class="log-count" id="logCount"></div>
+      </div>
+      <div id="logLines">
+        <div class="log-line log-run">
+          <span class="log-icon">◌</span>
+          <span class="log-name">Press "Run Tests" to execute the live self-test suite<span class="log-cursor"></span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Failures -->
+    <section class="failures-panel">
+      <div class="panel-title">
+        <span id="failuresPanelIcon">⚑</span>
+        <span id="failuresPanelTitle">Failures</span>
+      </div>
+      <div id="failures" class="failures-list">
+        <div class="log-line" style="opacity:.5;font-size:13px;color:var(--muted)">No results yet. Run the test suite above.</div>
+      </div>
+    </section>
+
+  </main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/testing_dashboard.js"></script>
+</body>
+</html>

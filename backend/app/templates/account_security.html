@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Account — Zero Trust AI Gateway</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/account_security.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="page-banner">
+      <div class="banner-left">
+        <div class="page-eyebrow">Account</div>
+        <h1>Account Settings</h1>
+        <p>Profile, role, trust state, owned models, API usage, and recent security outcomes.</p>
+      </div>
+      <span id="roleBadge" class="badge">user</span>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="panel-title">Profile</div>
+        <div id="profileSummary" class="status-box">Loading profile...</div>
+      </article>
+      <article class="panel">
+        <div class="panel-title">Usage & Outcomes</div>
+        <div id="usageSummary" class="status-box">Loading usage...</div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="panel-title">Change My Password</div>
+        <label>Current Password <input id="currentPassword" type="password" autocomplete="current-password" /></label>
+        <label>New Password <input id="newPassword" type="password" autocomplete="new-password" /></label>
+        <div class="btn-row">
+          <button id="changeBtn" class="primary">Update Password</button>
+          <button id="logoutBtn" class="secondary">Log Out</button>
+        </div>
+        <div class="hint">Use at least 6 characters.</div>
+        <div id="selfStatus" class="status-box">Ready.</div>
+      </article>
+
+      <article id="adminPanel" class="panel hidden">
+        <div class="panel-title">Admin Password Reset</div>
+        <label>Target Username <input id="targetUsername" placeholder="username" /></label>
+        <label>New Password <input id="targetPassword" type="password" placeholder="new password" /></label>
+        <div class="btn-row">
+          <button id="resetBtn" class="primary">Reset User Password</button>
+        </div>
+        <div class="hint">Use this only for account recovery or access support.</div>
+        <div id="adminStatus" class="status-box">Admin tools ready.</div>
+      </article>
+    </section>
+  </main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/account_security.js"></script>
+</body>
+</html>

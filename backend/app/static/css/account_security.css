@@ -1,0 +1,111 @@
+:root {
+      color-scheme: dark;
+      --bg: #08080a;
+      --bg-1: #0d0f14;
+      --bg-2: #111420;
+      --bg-3: #181b28;
+      --border: rgba(255,255,255,.08);
+      --b2: rgba(255,255,255,.13);
+      --cyan: #00d4ff;
+      --cyan-d: rgba(0,212,255,.1);
+      --green: #22d3a0;
+      --amber: #f5a623;
+      --red: #ff4d6d;
+      --text: #edf2ff;
+      --muted: #7c8499;
+      --mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height: 100vh; background: var(--bg); color: var(--text); padding: 20px; }
+    .shell { width: min(980px, 100%); margin: 0 auto; display: grid; gap: 14px; }
+    .page-banner {
+      border: 1px solid var(--b2);
+      border-radius: 8px;
+      background: var(--bg-1);
+      padding: 18px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .banner-left {}
+    .page-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+    .page-eyebrow::before { content: "// "; color: var(--cyan); font-family: var(--mono); }
+    .page-banner h1 { font-size: 22px; font-weight: 700; color: var(--text); }
+    .page-banner p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .badge { display: inline-flex; align-items: center; border: 1px solid var(--b2); border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--muted); }
+    .badge.admin { color: var(--amber); border-color: rgba(245,166,35,.4); background: rgba(245,166,35,.08); }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .panel {
+      border: 1px solid var(--b2);
+      border-radius: 8px;
+      background: var(--bg-1);
+      padding: 18px;
+    }
+    .panel-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+    .panel-title::before { content: "// "; color: var(--cyan); font-family: var(--mono); }
+    label {
+      display: grid;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    input {
+      width: 100%;
+      border: 1px solid var(--b2);
+      border-radius: 7px;
+      background: var(--bg-3);
+      color: var(--text);
+      padding: 10px 12px;
+      font: inherit;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .18s, box-shadow .18s;
+      text-transform: none;
+      letter-spacing: normal;
+      font-weight: 400;
+    }
+    input:focus { border-color: rgba(0,212,255,.42); box-shadow: 0 0 0 3px rgba(0,212,255,.08); }
+    input::placeholder { color: var(--muted); }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    button {
+      border: 1px solid var(--b2);
+      border-radius: 7px;
+      padding: 9px 14px;
+      color: var(--text);
+      background: var(--bg-2);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      font: inherit;
+      transition: border-color .18s, background .18s;
+    }
+    button:hover { border-color: var(--cyan); background: var(--bg-3); }
+    button.primary { background: var(--cyan); color: #000; border-color: var(--cyan); font-weight: 700; }
+    button.primary:hover { background: #00bde8; }
+    button.secondary { border-color: var(--border); background: transparent; color: var(--muted); }
+    button:disabled { opacity: .5; cursor: wait; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .status-box {
+      margin-top: 12px;
+      min-height: 40px;
+      padding: 10px 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      background: var(--bg-2);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .status-box.ok  { border-color: rgba(34,211,160,.3); color: var(--green); background: rgba(34,211,160,.06); }
+    .status-box.bad { border-color: rgba(255,77,109,.3);  color: var(--red);   background: rgba(255,77,109,.06); }
+    .hidden { display: none; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }

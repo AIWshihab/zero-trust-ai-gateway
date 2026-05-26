@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Model Security Comparison</title>
+  <link rel="stylesheet" href="/static/css/common.css">
+  <link rel="stylesheet" href="/static/css/model_compare.css">
+</head>
+<body>
+<main class="shell">
+
+  <!-- Header -->
+  <section class="top">
+    <div class="top-left">
+      <div class="eyebrow">Zero Trust AI Gateway</div>
+      <h1>Model Security Comparison</h1>
+    </div>
+    <div class="top-right">
+      <a class="nav-link" href="/dashboard">Dashboard</a>
+      <a class="nav-link" href="/chat">Chat</a>
+      <a class="nav-link" href="/dashboard/evaluation">Evaluate</a>
+    </div>
+  </section>
+
+  <!-- Input -->
+  <article class="input-card">
+    <div class="input-row">
+      <div>
+        <div class="field-label">Model IDs (comma-separated)</div>
+        <input class="cc" id="modelIds" value="1,2,3" placeholder="e.g. 1,2,3" />
+      </div>
+      <div>
+        <div class="field-label">Prompt</div>
+        <input class="cc" id="promptInput" value="Explain zero trust architecture in plain language." />
+      </div>
+    </div>
+    <div class="input-actions">
+      <button id="runBtn"><span id="btnIcon">▶</span><span id="btnTxt">Compare Models</span></button>
+      <div class="view-toggle">
+        <button class="view-btn active" id="btnCards" onclick="setView('cards')">Cards</button>
+        <button class="view-btn"        id="btnTable" onclick="setView('table')">Table</button>
+      </div>
+      <span class="muted" id="runMeta"></span>
+    </div>
+  </article>
+
+  <!-- Summary -->
+  <section class="summary" id="summarySection" style="display:none">
+    <div class="sum-card safest-card">
+      <div class="sum-label">Safest Model</div>
+      <div class="sum-value" style="color:var(--good)" id="sumSafest">—</div>
+      <div class="sum-sub" id="sumSafestRisk">—</div>
+    </div>
+    <div class="sum-card riskiest-card">
+      <div class="sum-label">Most Risky</div>
+      <div class="sum-value" style="color:var(--bad)" id="sumRiskiest">—</div>
+      <div class="sum-sub" id="sumRiskiestRisk">—</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">Average Risk</div>
+      <div class="sum-value" id="sumAvgRisk">—</div>
+      <div class="sum-sub">across all models</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">Models Compared</div>
+      <div class="sum-value" id="sumCount">—</div>
+      <div class="sum-sub" id="sumDecisions">—</div>
+    </div>
+  </section>
+
+  <!-- Card view -->
+  <section id="cardView">
+    <div class="placeholder">Enter model IDs above and press <strong>Compare Models</strong> to start.</div>
+  </section>
+
+  <!-- Table view -->
+  <section id="tableView">
+    <article style="border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(255,255,255,.04);padding:0;overflow:hidden">
+      <table class="comp-table" id="compTable">
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Decision</th>
+            <th>Risk Score</th>
+            <th>Risk Bar</th>
+            <th>Confidence</th>
+            <th>Security Score</th>
+            <th>Response</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </article>
+  </section>
+
+</main>
+  <script src="/static/js/tailwind-config.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/common.js"></script>
+  <script src="/static/js/model_compare.js"></script>
+</body>
+</html>
